@@ -1,0 +1,2690 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Мёд и Соты — пазл и пасека</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #34210c;
+    --bg-deep: #2a1608;
+    --bg-mid: #5c3312;
+    --honey-light: #ffd166;
+    --honey: #ffb627;
+    --honey-deep: #e2870f;
+    --wax: #f7e2ad;
+    --cream: #fff8ea;
+    --leaf: #7fa653;
+    --danger: #e25c45;
+    --good: #86c164;
+    --wood: #6b4423;
+    --wood-dark: #35200f;
+
+    /* --- farm-only accents (apiary hub, bees, quests, shop, modals) --- */
+    --farm-sky: #6fb8d6;
+    --farm-sky-deep: #3f88ab;
+    --farm-berry: #e2637a;
+    --farm-berry-deep: #b73f56;
+    --farm-gold-statue: #ffe49a;
+    --farm-gold-statue-deep: #c8901a;
+    --farm-wood-light: #8a5a2e;
+    --farm-petal: #ffc2d1;
+    --farm-leaf-2: #5c8f3c;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    overscroll-behavior: none;
+    background: var(--bg-deep);
+  }
+
+  body {
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--cream);
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(255, 197, 110, 0.16), transparent 60%),
+      radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.35), transparent 55%),
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.025) 39px, rgba(255,255,255,0.025) 40px),
+      repeating-linear-gradient(60deg, transparent, transparent 39px, rgba(255,255,255,0.025) 39px, rgba(255,255,255,0.025) 40px),
+      repeating-linear-gradient(120deg, transparent, transparent 39px, rgba(255,255,255,0.025) 39px, rgba(255,255,255,0.025) 40px),
+      linear-gradient(160deg, var(--bg-mid), var(--bg-deep) 70%);
+  }
+
+  #app { position: relative; height: 100%; width: 100%; }
+
+  .screen {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+  }
+  .screen.active { display: flex; }
+
+  #hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 10px 14px;
+    flex: 0 0 auto;
+    z-index: 3;
+  }
+
+  .hud-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--honey-light);
+    text-shadow: 0 2px 0 rgba(0,0,0,0.35);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hud-brand .bee { font-size: 1.2rem; }
+
+  .hud-stats { display: flex; align-items: center; gap: 6px; }
+
+  .stat {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    background: rgba(0,0,0,0.22);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 999px;
+    padding: 6px 11px;
+    font-weight: 800;
+    font-size: 1rem;
+  }
+  .stat--honey { color: var(--honey-light); }
+  .stat--score { color: var(--cream); font-size: 0.88rem; font-weight: 700; opacity: 0.85; }
+  .stat-icon { font-size: 1rem; }
+
+  .icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(0,0,0,0.22);
+    color: var(--cream);
+    font-size: 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .icon-btn:active { transform: scale(0.92); }
+  .icon-btn:focus-visible { outline: 2px solid var(--honey-light); outline-offset: 2px; }
+  .icon-btn.hidden { display: none; }
+
+  #game-area { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+
+  #game-canvas { position: absolute; inset: 0; display: block; touch-action: none; width: 100%; height: 100%; }
+
+  #float-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+  .float-pop {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: var(--cream);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.45), 0 0 14px rgba(255,182,39,0.55);
+    pointer-events: none;
+    white-space: nowrap;
+    animation: floatUp 1.1s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+    30% { transform: translate(-50%, -62%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -150%) scale(1); }
+  }
+
+  .combo-banner {
+    position: absolute;
+    top: 12px; left: 50%;
+    background: linear-gradient(135deg, var(--honey-light), var(--honey-deep));
+    color: var(--ink);
+    font-weight: 900;
+    font-size: 1.15rem;
+    padding: 7px 20px;
+    border-radius: 999px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+    z-index: 4;
+    opacity: 0;
+  }
+  .combo-banner.hidden { display: none; }
+  .combo-banner.combo-pop { animation: comboPop 1.2s ease-out; }
+  @keyframes comboPop {
+    0% { opacity: 0; transform: translateX(-50%) scale(0.6) translateY(-8px); }
+    15% { opacity: 1; transform: translateX(-50%) scale(1.08) translateY(0); }
+    26% { transform: translateX(-50%) scale(1) translateY(0); }
+    82% { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
+    100% { opacity: 0; transform: translateX(-50%) scale(1) translateY(-6px); }
+  }
+
+  /* ---------- Apiary hub ---------- */
+  /* Cozy farm backdrop — scoped only to farm screens, never to #screen-puzzle */
+  #screen-apiary, #screen-bees, #screen-quests, #screen-shop {
+    background:
+      radial-gradient(ellipse at 15% 0%, rgba(255, 209, 102, 0.10), transparent 55%),
+      radial-gradient(ellipse at 90% 15%, rgba(111, 184, 214, 0.08), transparent 50%),
+      repeating-linear-gradient(120deg, transparent 0 38px, rgba(255,255,255,0.02) 38px 40px),
+      repeating-linear-gradient(60deg, transparent 0 38px, rgba(255,255,255,0.02) 38px 40px);
+  }
+
+
+  .currency-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .currency-chip {
+    display: flex; align-items: center; gap: 4px;
+    background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(0,0,0,0.24));
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  .apiary-scroll {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 6px 16px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .section-label {
+    font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--honey-light); opacity: 0.8; margin: 4px 2px 8px;
+  }
+
+  .hive-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+  .hive-card, .bee-card, .quest-card {
+    display: flex; align-items: center; gap: 12px;
+    background: linear-gradient(160deg, rgba(255,246,224,0.11), rgba(255,246,224,0.05));
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.14), 0 6px 14px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
+    transition: transform 0.12s ease;
+  }
+  .hive-card:active, .bee-card:active, .quest-card:active { transform: translateY(1px); }
+  .hive-info, .bee-info { flex: 1; min-width: 0; }
+  .hive-name, .bee-name { font-weight: 800; font-size: 0.95rem; }
+  .hive-rate { font-size: 0.8rem; opacity: 0.75; font-weight: 700; margin-top: 2px; }
+
+  .decor-strip { display: flex; gap: 9px; flex-wrap: wrap; }
+  .decor-icon {
+    font-size: 1.4rem;
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, rgba(127,166,83,0.22), rgba(53,32,15,0.35));
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.2);
+  }
+  /* statue-style decor sits on a little gold pedestal instead of a grass tile */
+  .decor-icon.decor-icon--statue {
+    background: linear-gradient(180deg, rgba(255,228,154,0.35) 0%, rgba(255,228,154,0.35) 55%, var(--farm-gold-statue-deep) 55%, var(--farm-gold-statue-deep) 100%);
+  }
+  .decor-empty-hint { font-size: 0.82rem; opacity: 0.6; font-weight: 600; }
+
+  /* ============ Apiary topbar v2 — matches reference layout ============ */
+  .apiary-topbar-v2 {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 6px;
+    padding: calc(8px + env(safe-area-inset-top)) 10px 4px;
+    flex: 0 0 auto;
+  }
+
+  /* -- Level plaque (top-left) -- */
+  .level-plaque-wrap { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; width: 92px; background: none; border: none; padding: 0; font-family: inherit; cursor: pointer; }
+  .level-plaque {
+    background: linear-gradient(160deg, #fff3d9, var(--cream));
+    border-radius: 14px;
+    padding: 8px 6px 9px;
+    text-align: center;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 5px 10px rgba(0,0,0,0.22);
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+  }
+  .level-plaque-label { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.04em; color: var(--wood); opacity: 0.75; }
+  .level-plaque-top { display: flex; align-items: center; gap: 5px; }
+  .level-plaque-icon { width: 20px; height: 20px; object-fit: contain; }
+  .level-plaque-value { font-size: 1rem; font-weight: 900; color: var(--honey-deep); }
+  .level-plaque-track { width: 100%; height: 9px; border-radius: 999px; background: rgba(0,0,0,0.35); border: 1px solid rgba(0,0,0,0.2); overflow: hidden; }
+  /* Simple local "power" number, not a real league/leaderboard — just something that visibly
+     grows as you play, shown right under the level badge. */
+  .rating-chip {
+    display: flex; align-items: center; justify-content: space-between; gap: 4px;
+    background: rgba(0,0,0,0.28); border-radius: 8px; padding: 2px 7px;
+  }
+  .rating-chip-label { font-size: 0.52rem; font-weight: 800; color: var(--cream); opacity: 0.75; text-transform: uppercase; }
+  .rating-chip-value { font-size: 0.66rem; font-weight: 900; color: var(--honey-light); }
+  .level-plaque-fill { height: 100%; background: linear-gradient(90deg, var(--honey), var(--honey-deep)); border-radius: 999px; transition: width 0.3s ease; }
+
+  /* -- Resource chips (top-center) -- */
+  .resource-chips-v2 { display: flex; gap: 6px; flex: 1 1 auto; justify-content: center; flex-wrap: wrap; min-width: 0; align-self: flex-start; }
+  .chip-v2 {
+    background: linear-gradient(160deg, #fff3d9, var(--cream));
+    border-radius: 999px;
+    padding: 5px 12px 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 0px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.16), 0 5px 10px rgba(0,0,0,0.2);
+    min-width: 0;
+  }
+  .chip-v2-top { display: flex; align-items: center; gap: 5px; }
+  .chip-v2-icon { width: 24px; height: 24px; object-fit: contain; flex: 0 0 auto; }
+  .chip-v2-value { font-weight: 900; font-size: 0.9rem; color: var(--wood-dark); white-space: nowrap; }
+  .chip-v2-label { font-size: 0.56rem; font-weight: 800; color: var(--wood); opacity: 0.7; text-transform: uppercase; letter-spacing: 0.03em; }
+  .chip-v2-plus {
+    width: 19px; height: 19px; border-radius: 50%; border: none;
+    background: linear-gradient(160deg, var(--good), var(--farm-leaf-2));
+    color: var(--cream); font-weight: 900; font-size: 0.85rem;
+    line-height: 1; cursor: pointer; margin-left: 1px; padding: 0;
+    box-shadow: 0 2px 0 #3d6a26;
+  }
+  .chip-v2-plus:active { transform: translateY(1px); box-shadow: none; }
+
+  /* -- Top-right action button (daily challenge quick-view — the only top action,
+     since a second one would just duplicate the bottom-nav "Задания" destination) -- */
+  .topright-actions-v2 { display: flex; gap: 6px; flex: 0 0 auto; position: relative; }
+  .action-btn-v2 {
+    position: relative;
+    background: linear-gradient(160deg, #fff3d9, var(--cream));
+    border: none; border-radius: 14px;
+    padding: 7px 8px 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 5px 10px rgba(0,0,0,0.22);
+    cursor: pointer;
+    width: 78px;
+    font-family: inherit;
+  }
+  .action-btn-v2:active { transform: translateY(1px); }
+  .action-btn-v2-icon { width: 34px; height: 34px; object-fit: contain; }
+  .action-btn-v2-label { font-size: 0.54rem; font-weight: 800; color: var(--wood); line-height: 1.25; text-transform: uppercase; letter-spacing: 0.01em; }
+
+  /* ============ Territory stage — one background scene + plain icon overlays ============
+     No hex-shaped tile art anymore: the AI image tool only exports clean squares, so hexagon
+     cropping never lined up between separate generations. Fix: the whole scene is ONE
+     background picture (trees/grass/flowers baked in, rotated to a phone-portrait crop), and
+     every hive/ring position is just a small square icon sitting on top of it. */
+  .farm-stage {
+    position: relative; flex: 1; min-height: 0; margin: 2px 8px; border-radius: 18px; overflow: hidden;
+    background-image: url('assets/bg_scene.jpg');
+    background-size: cover; background-position: center;
+    background-color: #6fa83f; /* shows while bg_scene.jpg is still a placeholder */
+  }
+  .farm-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  .farm-bees { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
+  .farm-bee { position: absolute; width: 30px; height: 30px; will-change: left, top, transform; }
+  .farm-bee img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  /* A gentle wobble stands in for wing-flap frames — cheap, and reads fine at this size. */
+  @keyframes beeFlutter { 0%, 100% { transform: rotate(-5deg) scale(1); } 50% { transform: rotate(5deg) scale(1.06); } }
+  /* Meandering multi-stop paths (not a straight lerp) so the flight reads as wavy/natural. */
+  @keyframes beePathA { 0% { left: 8%; top: 80%; } 20% { left: 26%; top: 36%; } 42% { left: 50%; top: 64%; } 64% { left: 72%; top: 28%; } 84% { left: 88%; top: 58%; } 100% { left: 8%; top: 80%; } }
+  @keyframes beePathB { 0% { left: 90%; top: 72%; } 24% { left: 62%; top: 32%; } 48% { left: 38%; top: 58%; } 72% { left: 16%; top: 24%; } 100% { left: 90%; top: 72%; } }
+  @keyframes beePathC { 0% { left: 22%; top: 18%; } 30% { left: 48%; top: 52%; } 58% { left: 76%; top: 20%; } 82% { left: 42%; top: 66%; } 100% { left: 22%; top: 18%; } }
+  .farm-bee--a { animation-name: beePathA, beeFlutter; }
+  .farm-bee--b { animation-name: beePathB, beeFlutter; }
+  .farm-bee--c { animation-name: beePathC, beeFlutter; }
+  .farm-bee { animation-timing-function: ease-in-out, ease-in-out; animation-iteration-count: infinite, infinite; }
+
+  .farm-tile {
+    position: absolute; transform: translate(-50%, -50%);
+    pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .farm-tile.farm-tile--clickable { pointer-events: auto; cursor: pointer; }
+  .farm-tile img { pointer-events: none; object-fit: contain; display: block; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.3)); }
+  .farm-tile-cost {
+    position: absolute; bottom: -13px; left: 50%; transform: translate(-50%, 0);
+    display: flex; align-items: center; gap: 3px;
+    font-size: 0.6rem; font-weight: 800; color: var(--honey-light);
+    background: rgba(0,0,0,0.55); padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+  }
+  .farm-tile-cost img { width: 12px; height: 12px; object-fit: contain; filter: none; }
+  .farm-tile-tag {
+    position: absolute; bottom: -13px; left: 50%; transform: translate(-50%, 0);
+    font-size: 0.58rem; font-weight: 900; color: var(--cream); text-align: center; line-height: 1.1;
+    background: var(--wood-dark); padding: 2px 7px 3px; border-radius: 8px; white-space: nowrap;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+  }
+
+  /* Hive is the one bigger illustration, sitting directly on the background scene. */
+  .farm-hive-img {
+    position: absolute; transform: translate(-50%, -58%);
+    pointer-events: auto; cursor: pointer; object-fit: contain; z-index: 2;
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+  }
+
+  .farm-hive-popover {
+    position: absolute; transform: translate(-50%, calc(-100% - 10px));
+    background: linear-gradient(160deg, #fff3d9, var(--cream));
+    color: var(--ink);
+    border-radius: 14px;
+    padding: 10px 12px;
+    text-align: center;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.4);
+    pointer-events: auto;
+    z-index: 5;
+  }
+  .farm-hive-popover .fhp-title { font-weight: 900; font-size: 0.85rem; margin-bottom: 4px; }
+  .farm-hive-popover .fhp-rate { font-size: 0.7rem; opacity: 0.7; font-weight: 700; margin-bottom: 6px; }
+  .inline-icon { width: 14px; height: 14px; object-fit: contain; vertical-align: -2px; margin-left: 2px; }
+
+  /* -- Daily-challenge quick popover (hangs off the single top-right action button) -- */
+  .daily-challenge-popover {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 20;
+    width: 210px;
+    background: linear-gradient(160deg, #fff3d9, var(--cream));
+    color: var(--ink);
+    border-radius: 14px;
+    padding: 12px 14px;
+    text-align: left;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.4);
+  }
+  .dcp-title { display: flex; align-items: center; gap: 6px; font-weight: 900; font-size: 0.82rem; margin-bottom: 6px; }
+  .dcp-title img { width: 16px; height: 16px; object-fit: contain; }
+  .dcp-label { font-size: 0.76rem; color: var(--wood); line-height: 1.3; margin-bottom: 6px; }
+  .dcp-progress { font-size: 0.72rem; font-weight: 800; color: var(--honey-deep); margin-bottom: 8px; }
+
+
+  /* ============ Daily calendar overlay ============ */
+  .calendar-grid { display: flex; gap: 5px; justify-content: center; margin: 4px 0 16px; flex-wrap: wrap; }
+  .calendar-cell {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.05rem; font-weight: 800;
+    background: rgba(226,135,15,0.12);
+    border: 1px solid rgba(226,135,15,0.25);
+    color: var(--wood);
+    position: relative;
+  }
+  .calendar-cell.done { background: linear-gradient(160deg, var(--good), var(--farm-leaf-2)); color: var(--cream); border-color: transparent; }
+  .calendar-cell.today { box-shadow: 0 0 0 2px var(--honey-deep); }
+  .calendar-cell.gold { background: linear-gradient(160deg, var(--farm-gold-statue), var(--farm-gold-statue-deep)); color: var(--ink); }
+
+  /* ============ Puzzle-screen booster bar (left side) ============ */
+  .booster-bar {
+    position: absolute; left: 10px; top: 10px;
+    display: flex; flex-direction: column; gap: 8px;
+    z-index: 4;
+  }
+  .booster-btn {
+    position: relative;
+    width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.25rem;
+    background: linear-gradient(160deg, rgba(255,255,255,0.14), rgba(0,0,0,0.32));
+    border: 1px solid rgba(255,255,255,0.16);
+    box-shadow: 0 3px 0 rgba(0,0,0,0.32), 0 5px 10px rgba(0,0,0,0.25);
+    cursor: pointer;
+  }
+  .booster-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.32); }
+  .booster-btn .booster-count {
+    position: absolute; bottom: -4px; right: -4px;
+    background: var(--honey-deep); color: var(--ink);
+    font-size: 0.6rem; font-weight: 900;
+    min-width: 16px; height: 16px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--bg-deep);
+  }
+  .booster-btn.empty { opacity: 0.4; }
+  .booster-btn.armed { box-shadow: 0 0 0 3px var(--honey-light), 0 3px 0 rgba(0,0,0,0.32); }
+  .booster-hint {
+    position: absolute; left: 10px; top: 158px; z-index: 4;
+    background: rgba(0,0,0,0.5); color: var(--cream);
+    font-size: 0.68rem; font-weight: 700;
+    padding: 5px 9px; border-radius: 10px;
+    max-width: 130px;
+  }
+  .booster-hint.hidden { display: none; }
+
+  .farm-toast {
+    position: fixed; left: 50%; bottom: 90px; transform: translate(-50%, 10px);
+    background: rgba(20,12,4,0.92); color: var(--cream);
+    font-weight: 700; font-size: 0.85rem;
+    padding: 10px 16px; border-radius: 999px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    opacity: 0; transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 50; pointer-events: none; max-width: 80vw; text-align: center;
+  }
+  .farm-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ============ Calendar preview panel (bottom-left of hex stage) ============ */
+  .calendar-panel-v2 {
+    position: absolute; left: 8px; bottom: 8px; z-index: 2;
+    background: linear-gradient(160deg, #fff3d9, var(--cream));
+    border-radius: 14px;
+    padding: 9px 9px 8px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.18), 0 6px 14px rgba(0,0,0,0.28);
+    cursor: pointer;
+    border: none; font-family: inherit; text-align: left;
+    max-width: 82%;
+  }
+  .calendar-panel-v2:active { transform: translateY(1px); }
+  .calendar-panel-v2-title {
+    font-size: 0.62rem; font-weight: 900; color: var(--wood);
+    text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 7px;
+  }
+  .calendar-panel-v2-row { display: flex; gap: 6px; }
+  /* Each day card is one self-contained picture (frame + icon + reward text
+     already baked into calendar_dayN.png) — only a status treatment is added in CSS. */
+  .calendar-day-card-v2 { position: relative; display: flex; }
+  .calendar-day-card-v2 img { width: 62px; height: auto; object-fit: contain; display: block; border-radius: 10px; }
+  .calendar-day-card-v2.locked img { filter: grayscale(0.7) brightness(0.75); }
+  .calendar-day-card-v2.done img { filter: none; }
+  .calendar-day-card-v2.done::after {
+    content: '✓'; position: absolute; top: -5px; right: -5px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--good); color: var(--cream);
+    font-size: 0.62rem; font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 2px var(--cream);
+  }
+  .calendar-day-card-v2.today img { box-shadow: 0 0 0 2px var(--honey-deep); border-radius: 10px; }
+
+  /* ============ Bottom nav v2 ============ */
+  .bottom-nav-v2 {
+    display: flex; gap: 7px;
+    flex: 0 0 auto;
+    padding: 6px calc(8px + env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-right));
+  }
+  .nav-btn-v2 {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    background: linear-gradient(160deg, #fff3d9, var(--cream));
+    border: none; border-radius: 16px;
+    padding: 8px 2px 7px;
+    cursor: pointer; font-family: inherit;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 5px 10px rgba(0,0,0,0.24);
+    position: relative;
+    min-width: 0;
+  }
+  .nav-btn-v2:active { transform: translateY(1px); }
+  .nav-btn-v2-icon { width: 24px; height: 24px; object-fit: contain; flex: 0 0 auto; }
+  .nav-btn-v2-label {
+    font-size: 0.62rem; font-weight: 900; color: var(--wood-dark);
+    text-transform: uppercase; letter-spacing: 0.01em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 100%;
+  }
+  .nav-btn-v2--play { background: linear-gradient(160deg, var(--good), var(--farm-leaf-2)); }
+  .nav-btn-v2--play .nav-btn-v2-label { color: var(--cream); text-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+  .nav-badge-v2 {
+    position: absolute; top: -6px; right: -6px;
+    min-width: 19px; height: 19px; border-radius: 999px;
+    background: var(--danger); color: #fff;
+    font-size: 0.65rem; font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 0 2px var(--bg-deep);
+  }
+  .nav-badge-v2.hidden { display: none; }
+
+  /* ---------- Sub screens (bees / quests / shop) ---------- */
+  .sub-topbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    flex: 0 0 auto;
+  }
+  .sub-topbar h2 { flex: 1; margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--honey-light); }
+  .back-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(0,0,0,0.22);
+    color: var(--cream);
+    font-size: 1.05rem;
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .back-btn:active { transform: scale(0.92); }
+
+  .sub-scroll {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 4px 16px 20px;
+    display: flex; flex-direction: column; gap: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .bee-icon {
+    font-size: 1.55rem; flex: 0 0 auto;
+    width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, rgba(255,255,255,0.35), transparent 55%),
+                linear-gradient(160deg, var(--wax), var(--honey-light) 65%, var(--honey-deep));
+    box-shadow: inset 0 -4px 0 rgba(0,0,0,0.12), inset 0 2px 0 rgba(255,255,255,0.3), 0 2px 5px rgba(0,0,0,0.2);
+    border: 2px solid rgba(255,255,255,0.18);
+  }
+  .bee-icon.dim { opacity: 0.4; filter: grayscale(0.85); box-shadow: inset 0 -4px 0 rgba(0,0,0,0.18); }
+  .bee-icon--queen { border-color: var(--farm-gold-statue); box-shadow: inset 0 -4px 0 rgba(0,0,0,0.12), 0 0 0 3px rgba(255,228,154,0.18), 0 2px 6px rgba(0,0,0,0.22); }
+  .bee-icon--scout { border-color: var(--good); }
+  .bee-icon--statue {
+    background: linear-gradient(180deg, rgba(255,228,154,0.4) 0%, rgba(255,228,154,0.4) 52%, var(--farm-gold-statue-deep) 52%, var(--farm-gold-statue-deep) 100%);
+    border-color: rgba(255,228,154,0.4);
+  }
+  .bee-tier-icon {
+    width: 46px; height: 46px; flex: 0 0 auto;
+    border-radius: 50%; object-fit: contain;
+    background: radial-gradient(circle at 32% 28%, rgba(255,255,255,0.35), transparent 55%),
+                linear-gradient(160deg, var(--wax), var(--honey-light) 65%, var(--honey-deep));
+    box-shadow: inset 0 -4px 0 rgba(0,0,0,0.12), inset 0 2px 0 rgba(255,255,255,0.3), 0 2px 5px rgba(0,0,0,0.2);
+    border: 2px solid rgba(255,255,255,0.18);
+    padding: 4px;
+  }
+  .bee-tier-icon.dim { opacity: 0.45; filter: grayscale(0.8); }
+  .bee-desc { font-size: 0.78rem; opacity: 0.75; font-weight: 600; line-height: 1.35; margin-top: 2px; }
+  .bee-badge {
+    font-size: 0.75rem; font-weight: 800; color: var(--leaf);
+    background: rgba(127,166,83,0.18);
+    padding: 4px 10px; border-radius: 999px;
+    flex: 0 0 auto; white-space: nowrap;
+  }
+
+  .quest-card { flex-direction: column; align-items: stretch; gap: 8px; }
+  .quest-label { font-weight: 800; font-size: 0.92rem; }
+  .quest-progress-track { height: 10px; border-radius: 999px; background: rgba(0,0,0,0.28); overflow: hidden; }
+  .quest-progress-fill { height: 100%; background: linear-gradient(90deg, var(--honey-light), var(--honey-deep)); border-radius: 999px; transition: width 0.3s ease; }
+  .quest-progress-text { font-size: 0.78rem; opacity: 0.75; font-weight: 700; }
+
+  .small-action-btn {
+    font-family: inherit; font-weight: 800; font-size: 0.82rem;
+    border: none; border-radius: 999px;
+    padding: 9px 14px;
+    background: linear-gradient(160deg, var(--honey-light), var(--honey-deep));
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    box-shadow: 0 3px 0 #a85e08, 0 6px 10px rgba(0,0,0,0.22);
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .small-action-btn:disabled {
+    opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4);
+    box-shadow: 0 3px 0 rgba(0,0,0,0.18);
+  }
+  .small-action-btn:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #a85e08, 0 3px 6px rgba(0,0,0,0.2);
+  }
+
+  .empty-hint { text-align: center; opacity: 0.6; font-weight: 600; font-size: 0.9rem; padding: 30px 10px; }
+
+  /* ---------- Modals ---------- */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(20, 11, 4, 0.72);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    z-index: 10;
+  }
+  .overlay.hidden { display: none; }
+
+  .modal {
+    background: linear-gradient(160deg, #fff3d9, var(--cream));
+    color: var(--ink);
+    border-radius: 22px;
+    padding: 28px 26px 24px;
+    max-width: 380px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+    animation: modalIn 0.35s cubic-bezier(.2,.9,.3,1.3);
+    position: relative;
+  }
+  .modal::before, .modal::after {
+    position: absolute; font-size: 1.9rem; opacity: 0.5; pointer-events: none;
+  }
+  .modal::before { content: '🌼'; top: -8px; left: -6px; transform: rotate(-14deg); }
+  .modal::after { content: '🍃'; bottom: -4px; right: -2px; transform: rotate(18deg) scaleX(-1); }
+  @keyframes modalIn {
+    0% { opacity: 0; transform: scale(0.85) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .modal-emoji { font-size: 2.6rem; margin-bottom: 4px; }
+  .modal h1 {
+    margin: 0 0 2px;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--honey-deep);
+    text-shadow: 0 2px 0 #fff, 0 4px 0 rgba(226, 135, 15, 0.25);
+  }
+  .modal-sub { margin: 0 0 14px; font-weight: 700; font-size: 0.92rem; color: var(--wood); opacity: 0.8; }
+  .modal-text { margin: 0 0 20px; font-size: 0.94rem; line-height: 1.55; font-weight: 600; color: var(--ink); }
+
+  .primary-btn {
+    background: linear-gradient(160deg, var(--honey-light), var(--honey-deep));
+    color: var(--ink);
+    border: none;
+    border-radius: 999px;
+    font-family: inherit;
+    font-weight: 900;
+    font-size: 1.02rem;
+    padding: 13px 32px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #a85e08, 0 10px 18px rgba(0,0,0,0.28);
+    transition: transform 0.08s ease;
+  }
+  .primary-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #a85e08, 0 4px 8px rgba(0,0,0,0.25); }
+  .primary-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  .results-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .result {
+    flex: 1 1 40%;
+    background: rgba(226, 135, 15, 0.1);
+    border-radius: 14px;
+    padding: 10px 4px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .result-value { font-size: 1.25rem; font-weight: 900; color: var(--honey-deep); }
+  .result-label { font-size: 0.68rem; font-weight: 700; color: var(--wood); opacity: 0.8; }
+  #profile-content .result { background: linear-gradient(160deg, rgba(255,246,224,0.11), rgba(255,246,224,0.05)); flex: 1 1 42%; }
+  #profile-content .result-value { color: var(--honey-light); }
+  #profile-content .result-label { color: var(--cream); opacity: 0.7; }
+
+  .record-note { font-weight: 800; color: var(--leaf); margin: 0 0 14px; font-size: 0.95rem; }
+  .record-note.hidden { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .float-pop, .combo-banner.combo-pop, .modal { animation-duration: 0.01ms !important; }
+  }
+
+  @media (max-height: 560px) {
+    #hud, .apiary-topbar, .sub-topbar { padding-top: calc(6px + env(safe-area-inset-top)); }
+    .stat { padding: 4px 9px; font-size: 0.9rem; }
+    .modal { padding: 20px 20px 18px; }
+    .modal-emoji { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <div id="screen-puzzle" class="screen">
+    <header id="hud">
+      <button id="back-to-apiary-btn" class="icon-btn" title="К пасеке" aria-label="К пасеке">←</button>
+      <div class="hud-stats">
+        <div class="stat stat--honey"><span class="stat-icon">🍯</span><span id="honey-count">0</span></div>
+        <div class="stat stat--score"><span id="score-count">0</span></div>
+      </div>
+      <button id="reroll-btn" class="icon-btn hidden" title="Заменить фигуры (1 раз за раунд)" aria-label="Заменить фигуры">🔄</button>
+      <button id="restart-btn" class="icon-btn" title="Начать раунд заново" aria-label="Начать раунд заново">⟲</button>
+    </header>
+    <main id="game-area">
+      <canvas id="game-canvas"></canvas>
+      <div id="float-layer" aria-hidden="true"></div>
+      <div id="combo-banner" class="combo-banner hidden"></div>
+      <div class="booster-bar" id="booster-bar">
+        <button class="booster-btn empty" id="booster-btn-hammer" data-booster="hammer" title="Восковой Удар — убрать 3 соты">🔨<span class="booster-count" id="booster-count-hammer">0</span></button>
+        <button class="booster-btn empty" id="booster-btn-bomb" data-booster="bomb" title="Королевский Взрыв — убрать соседние соты">💣<span class="booster-count" id="booster-count-bomb">0</span></button>
+        <button class="booster-btn empty" id="booster-btn-laser" data-booster="laser" title="Нектарный Луч — очистить ряд">✨<span class="booster-count" id="booster-count-laser">0</span></button>
+      </div>
+      <div class="booster-hint hidden" id="booster-hint">Выбери соту на поле</div>
+    </main>
+  </div>
+
+  <div id="screen-apiary" class="screen">
+    <header class="apiary-topbar-v2">
+      <button class="level-plaque-wrap" id="level-plaque-wrap" data-nav="profile" aria-label="Профиль">
+        <div class="level-plaque">
+          <span class="level-plaque-label">УРОВЕНЬ</span>
+          <div class="level-plaque-top">
+            <img class="level-plaque-icon" src="assets/icon_level.png" alt="">
+            <span class="level-plaque-value">УР. <span id="level-num">1</span></span>
+          </div>
+        </div>
+        <div class="level-plaque-track"><div class="level-plaque-fill" id="level-xp-fill" style="width:0%"></div></div>
+        <div class="rating-chip"><span class="rating-chip-label">Рейтинг</span><span class="rating-chip-value" id="rating-value">0</span></div>
+      </button>
+
+      <div class="resource-chips-v2">
+        <div class="chip-v2">
+          <div class="chip-v2-top">
+            <img class="chip-v2-icon" src="assets/icon_honey.png" alt="">
+            <span class="chip-v2-value"><span id="res-honey">0</span> / <span id="res-honey-goal">40</span></span>
+          </div>
+          <span class="chip-v2-label">Мёд</span>
+        </div>
+        <div class="chip-v2">
+          <div class="chip-v2-top">
+            <img class="chip-v2-icon" src="assets/icon_diamond.png" alt="">
+            <span class="chip-v2-value" id="res-diamonds">0</span>
+            <button class="chip-v2-plus" id="res-plus-btn" aria-label="Пополнить">+</button>
+          </div>
+          <span class="chip-v2-label">Бриллианты</span>
+        </div>
+        <div class="chip-v2">
+          <div class="chip-v2-top">
+            <img class="chip-v2-icon" src="assets/icon_expansion.png" alt="">
+            <span class="chip-v2-value" id="res-territory">2/6</span>
+          </div>
+          <span class="chip-v2-label">Расширение</span>
+        </div>
+      </div>
+
+      <div class="topright-actions-v2">
+        <button class="action-btn-v2" id="daily-challenge-btn">
+          <img class="action-btn-v2-icon" src="assets/icon_calendar.png" alt="">
+          <span class="action-btn-v2-label">Ежедневное<br>испытание</span>
+          <span class="nav-badge-v2 hidden" id="daily-challenge-dot"></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="farm-stage" id="farm-stage">
+      <div class="farm-bees" id="farm-bees" aria-hidden="true"></div>
+      <div class="farm-overlay" id="farm-overlay"></div>
+
+      <button class="calendar-panel-v2" id="calendar-panel-v2" aria-label="Календарь визитов">
+        <div class="calendar-panel-v2-title">7 дней календарь</div>
+        <div class="calendar-panel-v2-row" id="calendar-panel-days"></div>
+      </button>
+    </div>
+
+    <nav class="bottom-nav-v2">
+      <button class="nav-btn-v2 nav-btn-v2--play" data-nav="puzzle">
+        <img class="nav-btn-v2-icon" src="assets/btn_play.png" alt="">
+        <span class="nav-btn-v2-label">Играть</span>
+      </button>
+      <button class="nav-btn-v2" data-nav="bees">
+        <img class="nav-btn-v2-icon" src="assets/btn_bees.png" alt="">
+        <span class="nav-btn-v2-label">Пчёлы</span>
+      </button>
+      <button class="nav-btn-v2" data-nav="quests">
+        <img class="nav-btn-v2-icon" src="assets/btn_quests.png" alt="">
+        <span class="nav-btn-v2-label">Задания</span>
+        <span class="nav-badge-v2 hidden" id="nav-badge-quests">0</span>
+      </button>
+      <button class="nav-btn-v2" data-nav="shop">
+        <img class="nav-btn-v2-icon" src="assets/btn_shop.png" alt="">
+        <span class="nav-btn-v2-label">Магазин</span>
+        <span class="nav-badge-v2 hidden" id="nav-badge-shop">0</span>
+      </button>
+    </nav>
+  </div>
+
+  <div id="screen-bees" class="screen">
+    <header class="sub-topbar">
+      <button class="back-btn" data-nav="apiary" aria-label="К пасеке">←</button>
+      <h2>Пчёлы</h2>
+      <div class="currency-chip">🌸<span id="bees-pollen">0</span></div>
+    </header>
+    <div class="sub-scroll" id="bees-content"></div>
+  </div>
+
+  <div id="screen-quests" class="screen">
+    <header class="sub-topbar">
+      <button class="back-btn" data-nav="apiary" aria-label="К пасеке">←</button>
+      <h2>Задания</h2>
+    </header>
+    <div class="sub-scroll" id="quests-content"></div>
+  </div>
+
+  <div id="screen-shop" class="screen">
+    <header class="sub-topbar">
+      <button class="back-btn" data-nav="apiary" aria-label="К пасеке">←</button>
+      <h2>Магазин</h2>
+      <div class="currency-chip">🍯<span id="shop-honey">0</span></div>
+      <div class="currency-chip">💎<span id="shop-diamonds">0</span></div>
+    </header>
+    <div class="sub-scroll" id="shop-content"></div>
+  </div>
+
+  <div id="screen-profile" class="screen">
+    <header class="sub-topbar">
+      <button class="back-btn" data-nav="apiary" aria-label="К пасеке">←</button>
+      <h2>Профиль</h2>
+    </header>
+    <div class="sub-scroll" id="profile-content"></div>
+  </div>
+
+</div>
+
+<div id="welcome-overlay" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-emoji">🐝</div>
+    <h1>Мёд и Соты</h1>
+    <p class="modal-sub">пазл и пасека</p>
+    <p class="modal-text">Собирай мёд в гекса-пазле — перетаскивай фигуры и заполняй ряды сот. Мёд, опыт и задания сразу попадают на пасеку: качай улей, расширяй территорию, открывай пчёл и бустеры. Нажми «Начать», чтобы попасть на пасеку.</p>
+    <button id="start-btn" class="primary-btn">Начать</button>
+  </div>
+</div>
+
+<div id="idle-overlay" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-emoji" id="idle-modal-emoji">🍯</div>
+    <h1 id="idle-modal-title">Награда за день</h1>
+    <p class="modal-text" id="idle-modal-text">Загляни завтра снова, чтобы не потерять серию!</p>
+    <button id="idle-claim-btn" class="primary-btn">Забрать</button>
+  </div>
+</div>
+
+<div id="calendar-overlay" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-emoji">🔥</div>
+    <h1>Календарь визитов</h1>
+    <p class="modal-sub" id="calendar-sub">День 0 из 7</p>
+    <div class="calendar-grid" id="calendar-grid"></div>
+    <button class="primary-btn" id="calendar-close-btn">Понятно</button>
+  </div>
+</div>
+
+<div id="gameover-overlay" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-emoji">🍯</div>
+    <h1>Соты заполнены</h1>
+    <div class="results-grid">
+      <div class="result"><span class="result-value" id="result-honey">0</span><span class="result-label">мёда за раунд</span></div>
+      <div class="result"><span class="result-value" id="result-score">0</span><span class="result-label">очков</span></div>
+      <div class="result"><span class="result-value" id="result-lines">0</span><span class="result-label">линий очищено</span></div>
+      <div class="result"><span class="result-value" id="result-combo">×0</span><span class="result-label">лучшее комбо</span></div>
+    </div>
+    <p id="record-note" class="record-note hidden">Новый рекорд сессии! 🎉</p>
+    <button id="apiary-btn" class="primary-btn">На пасеку</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// Any illustrated <img> (hex tiles, hive, icons, scenery, calendar cards, buttons) that fails
+// to load simply disappears instead of showing a broken-image glyph — no emoji/CSS fallback.
+document.addEventListener('error', function (e) {
+  if (e.target && e.target.tagName === 'IMG') e.target.style.display = 'none';
+}, true);
+
+const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+
+function cellKey(q, r) { return q + ',' + r; }
+
+function generateBoardCells(radius) {
+  const cells = [];
+  for (let q = -radius; q <= radius; q++) {
+    const rMin = Math.max(-radius, -q - radius);
+    const rMax = Math.min(radius, -q + radius);
+    for (let r = rMin; r <= rMax; r++) cells.push({ q, r });
+  }
+  return cells;
+}
+
+function createBoard(radius) {
+  const cells = generateBoardCells(radius);
+  const map = new Map();
+  for (const { q, r } of cells) map.set(cellKey(q, r), { q, r, occupied: false });
+  return { map, cells, radius };
+}
+
+function computeLines(cells) {
+  const byQ = new Map(), byR = new Map(), byS = new Map();
+  for (const c of cells) {
+    const s = -c.q - c.r;
+    if (!byQ.has(c.q)) byQ.set(c.q, []);
+    if (!byR.has(c.r)) byR.set(c.r, []);
+    if (!byS.has(s)) byS.set(s, []);
+    byQ.get(c.q).push(c); byR.get(c.r).push(c); byS.get(s).push(c);
+  }
+  const lines = [];
+  for (const arr of byQ.values()) if (arr.length > 1) lines.push(arr);
+  for (const arr of byR.values()) if (arr.length > 1) lines.push(arr);
+  for (const arr of byS.values()) if (arr.length > 1) lines.push(arr);
+  return lines;
+}
+
+function canPlace(board, shapeCells, offQ, offR) {
+  for (const [dq, dr] of shapeCells) {
+    const cell = board.map.get(cellKey(offQ + dq, offR + dr));
+    if (!cell || cell.occupied) return false;
+  }
+  return true;
+}
+
+function placeShape(board, shapeCells, offQ, offR) {
+  for (const [dq, dr] of shapeCells) {
+    board.map.get(cellKey(offQ + dq, offR + dr)).occupied = true;
+  }
+}
+
+function findFullLines(board, lines) {
+  return lines.filter((line) => line.every((c) => board.map.get(cellKey(c.q, c.r)).occupied));
+}
+
+function clearLines(board, fullLines) {
+  const toClear = new Set();
+  for (const line of fullLines) for (const c of line) toClear.add(cellKey(c.q, c.r));
+  for (const key of toClear) board.map.get(key).occupied = false;
+  return toClear;
+}
+
+function canPlaceAnywhere(board, shapeCells) {
+  for (const { q, r } of board.cells) if (canPlace(board, shapeCells, q, r)) return true;
+  return false;
+}
+
+function anyPieceHasAMove(board, pieces) {
+  return pieces.some((shape) => shape && canPlaceAnywhere(board, shape.cells));
+}
+
+function axialToPixel(q, r, size) {
+  const x = size * Math.sqrt(3) * (q + r / 2);
+  const y = size * 1.5 * r;
+  return { x, y };
+}
+
+function cubeRound(x, y, z) {
+  let rx = Math.round(x), ry = Math.round(y), rz = Math.round(z);
+  const dx = Math.abs(rx - x), dy = Math.abs(ry - y), dz = Math.abs(rz - z);
+  if (dx > dy && dx > dz) rx = -ry - rz;
+  else if (dy > dz) ry = -rx - rz;
+  else rz = -rx - ry;
+  return { x: rx, z: rz };
+}
+
+function pixelToAxial(x, y, size) {
+  const rF = (y / size) / 1.5;
+  const qF = (x / size) / Math.sqrt(3) - rF / 2;
+  const sF = -qF - rF;
+  const rounded = cubeRound(qF, sF, rF);
+  return { q: rounded.x + 0, r: rounded.z + 0 };
+}
+
+function hexBoundingBox(cells, size) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const { q, r } of cells) {
+    const { x, y } = axialToPixel(q, r, size);
+    minX = Math.min(minX, x - size * Math.sqrt(3) / 2);
+    maxX = Math.max(maxX, x + size * Math.sqrt(3) / 2);
+    minY = Math.min(minY, y - size);
+    maxY = Math.max(maxY, y + size);
+  }
+  return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+const SHAPE_BANK = [
+  { id: 'mono', size: 1, refIndex: 0, cells: [[0,0]] },
+  { id: 'domino_a', size: 2, refIndex: 0, cells: [[0,0], [1,0]] },
+  { id: 'domino_b', size: 2, refIndex: 0, cells: [[0,0], [1,-1]] },
+  { id: 'domino_c', size: 2, refIndex: 0, cells: [[0,0], [0,1]] },
+  { id: 'straight3_a', size: 3, refIndex: 1, cells: [[0,0], [1,0], [2,0]] },
+  { id: 'straight3_b', size: 3, refIndex: 1, cells: [[0,0], [1,-1], [2,-2]] },
+  { id: 'straight3_c', size: 3, refIndex: 1, cells: [[0,0], [0,1], [0,2]] },
+  { id: 'triangle_a', size: 3, refIndex: 2, cells: [[0,0], [1,-1], [1,0]] },
+  { id: 'triangle_b', size: 3, refIndex: 0, cells: [[0,0], [0,1], [1,0]] },
+  { id: 'wide_bend', size: 3, refIndex: 1, cells: [[0,0], [0,1], [1,1]] },
+  { id: 'straight4', size: 4, refIndex: 1, cells: [[0,0], [1,0], [2,0], [3,0]] },
+  { id: 'rhombus4', size: 4, refIndex: 0, cells: [[0,0], [0,1], [1,0], [1,1]] },
+  { id: 'zigzag4', size: 4, refIndex: 1, cells: [[0,0], [1,-1], [1,0], [2,-1]] },
+  { id: 'tripod4', size: 4, refIndex: 2, cells: [[0,0], [1,-1], [1,0], [2,0]] },
+  { id: 'straight5', size: 5, refIndex: 2, cells: [[0,0], [1,0], [2,0], [3,0], [4,0]] },
+  { id: 'flower5', size: 5, refIndex: 2, cells: [[0,0], [1,-1], [1,0], [2,-1], [2,0]] },
+  { id: 'rhombus_tail5', size: 5, refIndex: 3, cells: [[0,0], [0,1], [1,0], [1,1], [2,1]] },
+  { id: 'staircase5', size: 5, refIndex: 1, cells: [[0,0], [1,-1], [1,0], [2,-2], [2,-1]] },
+  { id: 'tripod5', size: 5, refIndex: 2, cells: [[0,0], [1,-1], [1,0], [2,0], [3,0]] },
+];
+
+for (const shape of SHAPE_BANK) {
+  const cellsObj = shape.cells.map(([q, r]) => ({ q, r }));
+  const b = hexBoundingBox(cellsObj, 1);
+  shape.centerOffsetX = (b.minX + b.maxX) / 2;
+  shape.centerOffsetY = (b.minY + b.maxY) / 2;
+}
+
+const WEIGHT_BY_SIZE = { 1: 6, 2: 6, 3: 5, 4: 3, 5: 2 };
+const WEIGHTED_POOL = [];
+for (const shape of SHAPE_BANK) {
+  const w = WEIGHT_BY_SIZE[shape.size] || 1;
+  for (let i = 0; i < w; i++) WEIGHTED_POOL.push(shape);
+}
+
+const HIVE_DEF = { name: 'Улей', baseUpgradeCost: 40 };
+const HIVE_UPGRADE_COST_MULT = 1.45;
+
+const BEE_DEFS = {
+  bee_worker: { name: 'Пчёлка-Труженица', icon: '🐝', cost: 0,  costCurrency: null,      effect: 'start_bee_no_bonus',       description: 'Обычная пчела с пасеки. Пока просто радует глаз — бонусов не даёт.' },
+  bee_scout:  { name: 'Пчела-Разведчица', icon: '🐝', cost: 30, costCurrency: 'pollen',  effect: 'extra_reroll_per_round',   description: 'Даёт одну бесплатную замену фигур за раунд в пазле.' },
+  bee_queen:  { name: 'Пчелиная Матка',   icon: '👑', cost: 80, costCurrency: 'pollen',  effect: 'plus10pct_honey_per_line', description: '+10% мёда за каждую собранную линию в пазле.' },
+};
+
+const DECOR_DEFS = {
+  flower_1:      { name: 'Ромашки', icon: '🌼', cost: 40 },
+  fence_1:       { name: 'Плетень', icon: '🌾', cost: 60 },
+  planter_1:     { name: 'Кашпо с цветами', icon: '🪴', cost: 55 },
+  globe_1:       { name: 'Малый глобус', icon: '🌐', cost: 70 },
+  statue_1:      { name: 'Золотая Пчела', icon: '🐝', cost: 150, statue: true },
+  golden_flower: { name: 'Золотой Цветок', icon: '🌟', cost: null, hidden: true },
+};
+
+// The 8-tier bee collection — Russian names as given. Economy (level gate / cost / bonus)
+// is my design per your "экономика на тебе": each tier needs BOTH a player level and a honey
+// cost to buy in the shop, and grants a permanent +X% honey-per-line bonus once owned —
+// it replaces the previous tier (one bee that ranks up), not a separate pet per tier.
+const BEE_TIERS = [
+  { tier: 1, key: 'common',      name: 'Обычная пчела',            icon: 'assets/bee_common.png',      requiredLevel: 1,  cost: 0,    bonusPct: 0 },
+  { tier: 2, key: 'common_plus', name: 'Улучшенная обычная пчела', icon: 'assets/bee_common_plus.png', requiredLevel: 3,  cost: 60,   bonusPct: 5 },
+  { tier: 3, key: 'silver',      name: 'Серебряная пчела',         icon: 'assets/bee_silver.png',      requiredLevel: 6,  cost: 150,  bonusPct: 10 },
+  { tier: 4, key: 'gold',        name: 'Золотая пчела',            icon: 'assets/bee_gold.png',        requiredLevel: 9,  cost: 320,  bonusPct: 16 },
+  { tier: 5, key: 'honey',       name: 'Медовая пчела',            icon: 'assets/bee_honey.png',       requiredLevel: 12, cost: 600,  bonusPct: 23 },
+  { tier: 6, key: 'royal',       name: 'Королевская пчела',        icon: 'assets/bee_royal.png',       requiredLevel: 16, cost: 1100, bonusPct: 31 },
+  { tier: 7, key: 'emperor',     name: 'Императорская пчела',      icon: 'assets/bee_emperor.png',     requiredLevel: 20, cost: 2000, bonusPct: 40 },
+  { tier: 8, key: 'legendary',   name: 'Легендарная пчела',        icon: 'assets/bee_legendary.png',   requiredLevel: 25, cost: 3600, bonusPct: 50 },
+];
+
+function currentBeeTier(state) { return BEE_TIERS[Math.min(state.beeTier, BEE_TIERS.length) - 1]; }
+function nextBeeTier(state) { return state.beeTier < BEE_TIERS.length ? BEE_TIERS[state.beeTier] : null; }
+
+function buyNextBeeTier(state) {
+  const next = nextBeeTier(state);
+  if (!next) return false;
+  if (state.level < next.requiredLevel) return false;
+  if (state.honey < next.cost) return false;
+  state.honey -= next.cost;
+  state.beeTier = next.tier;
+  return true;
+}
+
+const BOOSTER_DEFS = {
+  hammer: { name: 'Восковой Удар',     icon: '🔨', cost: 10, currency: 'honey',    desc: 'Убирает соту и пару соседних' },
+  bomb:   { name: 'Королевский Взрыв', icon: '💣', cost: 5,  currency: 'diamonds', desc: 'Убирает соту и всех соседей вокруг' },
+  laser:  { name: 'Нектарный Луч',     icon: '✨', cost: 50, currency: 'honey',    desc: 'Расчищает целый ряд сот' },
+};
+
+const QUEST_POOL = [
+  { type: 'lines',  target: 5,  rewardHoney: 30, rewardPollen: 0, label: 'Собери {t} линий за раунды' },
+  { type: 'combo',  target: 2,  rewardHoney: 0,  rewardPollen: 5, label: 'Сделай комбо ×{t} за один ход' },
+  { type: 'honey',  target: 40, rewardHoney: 25, rewardPollen: 0, label: 'Заработай {t} мёда' },
+  { type: 'rounds', target: 3,  rewardHoney: 20, rewardPollen: 0, label: 'Сыграй {t} раунда' },
+  { type: 'lines',  target: 10, rewardHoney: 0,  rewardPollen: 8, label: 'Собери {t} линий за раунды' },
+  { type: 'combo',  target: 3,  rewardHoney: 35, rewardPollen: 3, label: 'Сделай комбо ×{t} за один ход' },
+];
+
+const DAILY_POOL = [
+  { type: 'lines',  target: 3,  rewardHoney: 15, rewardXp: 10, label: 'Собери {t} линии сегодня' },
+  { type: 'rounds', target: 2,  rewardHoney: 12, rewardXp: 10, label: 'Сыграй {t} раунда сегодня' },
+  { type: 'combo',  target: 2,  rewardHoney: 18, rewardXp: 12, label: 'Сделай комбо ×{t} сегодня' },
+  { type: 'honey',  target: 20, rewardHoney: 10, rewardXp: 10, label: 'Заработай {t} мёда сегодня' },
+];
+
+// Farm territory: one hex ring (6 tiles) around the central hive. Independent of the puzzle's own hex grid/DIRS.
+const FARM_RING_ORDER = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]].map(([q, r]) => ({ q, r }));
+const FARM_STARTER_FLOWERS = { 0: '🌼', 3: '🌷' };
+const FARM_UNLOCK_BASE_COST = 60;
+const FARM_UNLOCK_COST_MULT = 1.6;
+
+function makeRandomQuest(existingQuests) {
+  existingQuests = existingQuests || [];
+  const isDupe = (tpl) => existingQuests.some((q) => q.type === tpl.type && q.target === tpl.target);
+  let tpl = QUEST_POOL[Math.floor(Math.random() * QUEST_POOL.length)];
+  for (let tries = 0; tries < 8 && isDupe(tpl); tries++) {
+    tpl = QUEST_POOL[Math.floor(Math.random() * QUEST_POOL.length)];
+  }
+  return { type: tpl.type, target: tpl.target, progress: 0, rewardHoney: tpl.rewardHoney, rewardPollen: tpl.rewardPollen, label: tpl.label, completed: false };
+}
+
+function makeDailyChallenge() {
+  const tpl = DAILY_POOL[Math.floor(Math.random() * DAILY_POOL.length)];
+  return { type: tpl.type, target: tpl.target, progress: 0, rewardHoney: tpl.rewardHoney, rewardXp: tpl.rewardXp, label: tpl.label, completed: false, claimed: false };
+}
+
+function dateStr(ts) { return new Date(ts).toISOString().slice(0, 10); }
+
+function createDefaultState(now) {
+  now = now || Date.now();
+  const q1 = makeRandomQuest([]);
+  const q2 = makeRandomQuest([q1]);
+  const territory = FARM_RING_ORDER.map((pos, i) => ({
+    q: pos.q, r: pos.r,
+    unlocked: Object.prototype.hasOwnProperty.call(FARM_STARTER_FLOWERS, i),
+    starterFlower: FARM_STARTER_FLOWERS[i] || null,
+    decorId: null,
+  }));
+  return {
+    honey: 0, pollen: 0, diamonds: 0,
+    level: 1, xp: 0,
+    hive: { level: 1, upgradeCost: HIVE_DEF.baseUpgradeCost },
+    beeTier: 1,
+    territory: territory,
+    bees: [
+      { id: 'bee_worker', owned: true },
+      { id: 'bee_scout', owned: false },
+      { id: 'bee_queen', owned: false },
+    ],
+    decorations: [
+      { id: 'flower_1', owned: false, placedIndex: null },
+      { id: 'fence_1', owned: false, placedIndex: null },
+      { id: 'planter_1', owned: false, placedIndex: null },
+      { id: 'globe_1', owned: false, placedIndex: null },
+      { id: 'statue_1', owned: false, placedIndex: null },
+      { id: 'golden_flower', owned: false, placedIndex: null },
+    ],
+    boosters: { hammer: 0, bomb: 0, laser: 0 },
+    quests: [q1, q2],
+    daily: { streak: 0, lastClaimDate: null, challenge: makeDailyChallenge(), challengeDate: dateStr(now) },
+    stats: { roundsPlayed: 0, bestScore: 0 },
+    lastVisitTimestamp: now,
+    seenWelcome: false,
+  };
+}
+
+function mergeState(loaded, now) {
+  const def = createDefaultState(now);
+  if (!loaded || typeof loaded !== 'object') return def;
+
+  const merged = Object.assign({}, def, loaded);
+
+  merged.hive = (loaded.hive && typeof loaded.hive === 'object')
+    ? {
+        level: typeof loaded.hive.level === 'number' && loaded.hive.level >= 1 ? loaded.hive.level : 1,
+        upgradeCost: typeof loaded.hive.upgradeCost === 'number' ? loaded.hive.upgradeCost : def.hive.upgradeCost,
+      }
+    : def.hive;
+
+  merged.territory = (Array.isArray(loaded.territory) && loaded.territory.length === def.territory.length)
+    ? def.territory.map((defTile, i) => {
+        const saved = loaded.territory[i];
+        return saved && typeof saved === 'object'
+          ? Object.assign({}, defTile, { unlocked: !!saved.unlocked || defTile.unlocked, decorId: saved.decorId || null })
+          : defTile;
+      })
+    : def.territory;
+
+  merged.bees = def.bees.map((defBee) => {
+    const saved = Array.isArray(loaded.bees) && loaded.bees.find((b) => b.id === defBee.id);
+    return saved ? Object.assign({}, defBee, saved) : defBee;
+  });
+  merged.decorations = def.decorations.map((defDecor) => {
+    const saved = Array.isArray(loaded.decorations) && loaded.decorations.find((d) => d.id === defDecor.id);
+    return saved ? Object.assign({}, defDecor, saved) : defDecor;
+  });
+  merged.boosters = (loaded.boosters && typeof loaded.boosters === 'object')
+    ? {
+        hammer: typeof loaded.boosters.hammer === 'number' ? loaded.boosters.hammer : 0,
+        bomb: typeof loaded.boosters.bomb === 'number' ? loaded.boosters.bomb : 0,
+        laser: typeof loaded.boosters.laser === 'number' ? loaded.boosters.laser : 0,
+      }
+    : def.boosters;
+
+  merged.quests = Array.isArray(loaded.quests) && loaded.quests.length > 0 ? loaded.quests : def.quests;
+
+  merged.daily = (loaded.daily && typeof loaded.daily === 'object')
+    ? {
+        streak: typeof loaded.daily.streak === 'number' ? loaded.daily.streak : 0,
+        lastClaimDate: typeof loaded.daily.lastClaimDate === 'string' ? loaded.daily.lastClaimDate : null,
+        challenge: (loaded.daily.challenge && typeof loaded.daily.challenge === 'object') ? loaded.daily.challenge : def.daily.challenge,
+        challengeDate: typeof loaded.daily.challengeDate === 'string' ? loaded.daily.challengeDate : def.daily.challengeDate,
+      }
+    : def.daily;
+
+  merged.stats = (loaded.stats && typeof loaded.stats === 'object')
+    ? {
+        roundsPlayed: typeof loaded.stats.roundsPlayed === 'number' ? loaded.stats.roundsPlayed : 0,
+        bestScore: typeof loaded.stats.bestScore === 'number' ? loaded.stats.bestScore : 0,
+      }
+    : def.stats;
+
+  merged.lastVisitTimestamp = typeof loaded.lastVisitTimestamp === 'number' ? loaded.lastVisitTimestamp : def.lastVisitTimestamp;
+  merged.seenWelcome = !!loaded.seenWelcome;
+  merged.honey = typeof loaded.honey === 'number' && isFinite(loaded.honey) ? loaded.honey : 0;
+  merged.pollen = typeof loaded.pollen === 'number' && isFinite(loaded.pollen) ? loaded.pollen : 0;
+  merged.diamonds = typeof loaded.diamonds === 'number' && isFinite(loaded.diamonds) ? loaded.diamonds : 0;
+  merged.level = typeof loaded.level === 'number' && loaded.level >= 1 ? loaded.level : 1;
+  merged.xp = typeof loaded.xp === 'number' && isFinite(loaded.xp) ? loaded.xp : 0;
+  merged.beeTier = typeof loaded.beeTier === 'number' && loaded.beeTier >= 1 && loaded.beeTier <= BEE_TIERS.length ? loaded.beeTier : 1;
+
+  return merged;
+}
+
+function xpForLevel(level) { return 30 + (level - 1) * 20; }
+
+function addXp(state, amount) {
+  if (!amount) return;
+  state.xp += amount;
+  let need = xpForLevel(state.level);
+  while (state.xp >= need) {
+    state.xp -= need;
+    state.level += 1;
+    state.honey += 5;
+    need = xpForLevel(state.level);
+  }
+}
+
+function hiveTierClass(level) {
+  if (level >= 7) return 't3';
+  if (level >= 4) return 't2';
+  return 't1';
+}
+
+function upgradeHive(state) {
+  if (state.honey < state.hive.upgradeCost) return false;
+  state.honey -= state.hive.upgradeCost;
+  state.hive.level += 1;
+  state.hive.upgradeCost = Math.round(state.hive.upgradeCost * HIVE_UPGRADE_COST_MULT);
+  addXp(state, 8);
+  return true;
+}
+
+function territoryUnlockCost(state) {
+  const unlockedCount = state.territory.filter((t) => t.unlocked).length;
+  return Math.round(FARM_UNLOCK_BASE_COST * Math.pow(FARM_UNLOCK_COST_MULT, Math.max(0, unlockedCount - 2)));
+}
+
+function autoPlaceDecor(state) {
+  const unplaced = state.decorations.filter((d) => d.owned && d.placedIndex == null);
+  for (const d of unplaced) {
+    const idx = state.territory.findIndex((t) => t.unlocked && !t.starterFlower && !t.decorId);
+    if (idx === -1) break;
+    state.territory[idx].decorId = d.id;
+    d.placedIndex = idx;
+  }
+}
+
+function unlockTerritoryTile(state, index) {
+  const tile = state.territory[index];
+  if (!tile || tile.unlocked) return false;
+  const cost = territoryUnlockCost(state);
+  if (state.honey < cost) return false;
+  state.honey -= cost;
+  tile.unlocked = true;
+  addXp(state, 6);
+  autoPlaceDecor(state);
+  return true;
+}
+
+function unlockBee(state, id) {
+  const bee = state.bees.find((b) => b.id === id);
+  const def = BEE_DEFS[id];
+  if (!bee || !def || bee.owned || !def.costCurrency) return false;
+  if (state[def.costCurrency] < def.cost) return false;
+  state[def.costCurrency] -= def.cost;
+  bee.owned = true;
+  addXp(state, 6);
+  return true;
+}
+
+function buyDecoration(state, id) {
+  const decor = state.decorations.find((d) => d.id === id);
+  const def = DECOR_DEFS[id];
+  if (!decor || !def || decor.owned || def.cost == null) return false;
+  if (state.honey < def.cost) return false;
+  state.honey -= def.cost;
+  decor.owned = true;
+  addXp(state, 4);
+  autoPlaceDecor(state);
+  return true;
+}
+
+function buyBooster(state, type) {
+  const def = BOOSTER_DEFS[type];
+  if (!def) return false;
+  if (state[def.currency] < def.cost) return false;
+  state[def.currency] -= def.cost;
+  state.boosters[type] = (state.boosters[type] || 0) + 1;
+  return true;
+}
+
+function hasBee(state, id) {
+  const bee = state.bees.find((b) => b.id === id);
+  return !!(bee && bee.owned);
+}
+
+function progressOne(q, delta) {
+  if (!q || q.completed) return;
+  if (q.type === 'lines' && delta.lines) q.progress = Math.min(q.target, q.progress + delta.lines);
+  else if (q.type === 'honey' && delta.honey) q.progress = Math.min(q.target, q.progress + delta.honey);
+  else if (q.type === 'rounds' && delta.rounds) q.progress = Math.min(q.target, q.progress + delta.rounds);
+  else if (q.type === 'combo' && delta.combo && delta.combo >= q.target) q.progress = q.target;
+  if (q.progress >= q.target) q.completed = true;
+}
+
+function updateQuestsProgress(state, delta) {
+  delta = delta || {};
+  for (const q of state.quests) progressOne(q, delta);
+  if (state.daily && state.daily.challenge) progressOne(state.daily.challenge, delta);
+}
+
+function claimQuest(state, index) {
+  const q = state.quests[index];
+  if (!q || !q.completed) return false;
+  state.honey += q.rewardHoney || 0;
+  state.pollen += q.rewardPollen || 0;
+  addXp(state, 10);
+  state.quests[index] = makeRandomQuest(state.quests);
+  return true;
+}
+
+function claimDailyChallenge(state) {
+  const c = state.daily.challenge;
+  if (!c || !c.completed || c.claimed) return false;
+  state.honey += c.rewardHoney || 0;
+  addXp(state, c.rewardXp || 10);
+  c.claimed = true;
+  return true;
+}
+
+function refreshDaily(state, now) {
+  const today = dateStr(now);
+  if (state.daily.challengeDate !== today) {
+    state.daily.challenge = makeDailyChallenge();
+    state.daily.challengeDate = today;
+  }
+}
+
+function isDailyRewardAvailable(state, now) {
+  return state.daily.lastClaimDate !== dateStr(now);
+}
+
+function claimDailyLogin(state, now) {
+  const today = dateStr(now);
+  if (state.daily.lastClaimDate === today) return null;
+  const yesterday = dateStr(now - 24 * 3600 * 1000);
+  state.daily.streak = (state.daily.lastClaimDate === yesterday) ? (state.daily.streak % 7) + 1 : 1;
+  state.daily.lastClaimDate = today;
+  const day = state.daily.streak;
+  let honeyGain = 8 + day * 4;
+  let grantedGoldenFlower = false;
+  if (day === 7) {
+    honeyGain += 20;
+    state.diamonds += 2;
+    const gf = state.decorations.find((d) => d.id === 'golden_flower');
+    if (gf && !gf.owned) { gf.owned = true; grantedGoldenFlower = true; autoPlaceDecor(state); }
+  }
+  state.honey += honeyGain;
+  addXp(state, 12);
+  return { day: day, honeyGain: honeyGain, grantedGoldenFlower: grantedGoldenFlower };
+}
+
+const SAVE_KEY = 'hexhoney_save_v1';
+
+async function loadGameState() {
+  let raw = null;
+  if (window.storage) {
+    try {
+      const res = await window.storage.get(SAVE_KEY, false);
+      raw = res ? res.value : null;
+    } catch (e) { raw = null; }
+  } else {
+    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+  }
+  if (!raw) return mergeState(null);
+  try { return mergeState(JSON.parse(raw)); } catch (e) { return mergeState(null); }
+}
+
+async function saveGameState() {
+  let json;
+  try { json = JSON.stringify(gameState); } catch (e) { return; }
+  if (window.storage) {
+    try { await window.storage.set(SAVE_KEY, json, false); } catch (e) { /* ignore */ }
+  } else {
+    try { localStorage.setItem(SAVE_KEY, json); } catch (e) { /* ignore */ }
+  }
+}
+
+const RADIUS = 5;
+const BOARD_CELLS = generateBoardCells(RADIUS);
+const LINES = computeLines(BOARD_CELLS);
+const BOARD_BBOX_1 = hexBoundingBox(BOARD_CELLS, 1);
+const CLEAR_FX_DURATION = 420;
+const SNAPBACK_DURATION = 190;
+
+let gameState = null;
+
+let gameBoard = createBoard(RADIUS);
+let trayPieces = [null, null, null];
+let roundHoney = 0, roundScore = 0, roundBestCombo = 0, roundLinesCleared = 0, roundComboCount = 0;
+let rerollUsedThisRound = false;
+let sessionBest = 0, roundStartBest = 0;
+let clearFx = [];
+let drag = null;
+let snapBack = null;
+let layout = null;
+let ctx = null;
+
+let canvas, gameArea, floatLayer, comboBanner, honeyCountEl, scoreCountEl,
+    restartBtn, rerollBtn, backToApiaryBtn,
+    welcomeOverlay, startBtn,
+    idleOverlay, idleModalEmojiEl, idleModalTitleEl, idleModalTextEl, idleClaimBtn,
+    calendarOverlay, calendarSubEl, calendarGridEl, calendarCloseBtn,
+    gameoverOverlay, apiaryBtn, resultHoney, resultScore, resultCombo, resultLines, recordNote,
+    levelNumEl, levelXpFillEl, levelPlaqueWrapEl, ratingValueEl, resHoneyEl, resHoneyGoalEl, resDiamondsEl, resPlusBtn, resTerritoryEl,
+    dailyChallengeBtnEl, dailyChallengeDotEl,
+    calendarPanelV2El, calendarPanelDaysEl, navBadgeQuestsEl, navBadgeShopEl,
+    farmStageEl, farmOverlayEl, farmBeesEl,
+    beesContentEl, beesPollenEl, questsContentEl, shopContentEl, shopHoneyEl, shopDiamondsEl, profileContentEl,
+    boosterBtns, boosterCountEls, boosterHintEl;
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function setupCanvasDPI(cssWidth, cssHeight) {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(cssWidth * dpr));
+  canvas.height = Math.max(1, Math.round(cssHeight * dpr));
+  const c = canvas.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return c;
+}
+
+function computeLayout() {
+  const rect = gameArea.getBoundingClientRect();
+  const cssWidth = Math.max(1, rect.width);
+  const cssHeight = Math.max(1, rect.height);
+
+  const trayHeight = clamp(cssHeight * 0.22, 92, 148);
+  const boardAreaHeight = Math.max(1, cssHeight - trayHeight);
+
+  const pad = 14;
+  const boardHexSize = Math.max(4, Math.min(
+    (cssWidth - pad * 2) / BOARD_BBOX_1.width,
+    (boardAreaHeight - pad * 2) / BOARD_BBOX_1.height
+  ));
+
+  const boardOriginX = cssWidth / 2;
+  const boardOriginY = boardAreaHeight / 2;
+
+  const slotW = cssWidth / 3;
+  const traySlots = [];
+  for (let i = 0; i < 3; i++) {
+    traySlots.push({ cx: slotW * (i + 0.5), cy: boardAreaHeight + trayHeight / 2, w: slotW, h: trayHeight });
+  }
+
+  let maxW = 0, maxH = 0;
+  for (const shape of SHAPE_BANK) {
+    const cellsObj = shape.cells.map(([q, r]) => ({ q, r }));
+    const b = hexBoundingBox(cellsObj, 1);
+    maxW = Math.max(maxW, b.width);
+    maxH = Math.max(maxH, b.height);
+  }
+  const slotPad = 18;
+  const miniHexSize = Math.max(3, Math.min(
+    (slotW - slotPad * 2) / maxW,
+    (trayHeight - slotPad * 2) / maxH
+  ));
+
+  layout = { cssWidth, cssHeight, boardAreaHeight, trayHeight, boardOriginX, boardOriginY, boardHexSize, traySlots, miniHexSize };
+  ctx = setupCanvasDPI(cssWidth, cssHeight);
+}
+
+function hexCornerPoint(cx, cy, size, i) {
+  const angle = Math.PI / 180 * (60 * i - 30);
+  return [cx + size * Math.cos(angle), cy + size * Math.sin(angle)];
+}
+
+function traceHex(c, cx, cy, size) {
+  c.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const [x, y] = hexCornerPoint(cx, cy, size, i);
+    if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+  }
+  c.closePath();
+}
+
+function traceRoundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+function drawCell(c, cx, cy, size, kind, fxProgress) {
+  if (kind === 'empty') {
+    traceHex(c, cx, cy, size * 0.94);
+    const g = c.createLinearGradient(cx, cy - size, cx, cy + size);
+    g.addColorStop(0, '#FBEBC2');
+    g.addColorStop(1, '#EAD096');
+    c.fillStyle = g;
+    c.fill();
+    c.lineWidth = Math.max(1, size * 0.06);
+    c.strokeStyle = 'rgba(150, 105, 45, 0.5)';
+    c.stroke();
+  } else if (kind === 'filled') {
+    traceHex(c, cx, cy, size * 0.94);
+    const g = c.createLinearGradient(cx - size, cy - size, cx + size, cy + size);
+    g.addColorStop(0, '#FFD873');
+    g.addColorStop(0.55, '#FFB627');
+    g.addColorStop(1, '#DE800C');
+    c.fillStyle = g;
+    c.fill();
+    c.lineWidth = Math.max(1, size * 0.07);
+    c.strokeStyle = '#A6620A';
+    c.stroke();
+    c.save();
+    traceHex(c, cx, cy, size * 0.94);
+    c.clip();
+    c.beginPath();
+    c.ellipse(cx - size * 0.28, cy - size * 0.36, size * 0.32, size * 0.15, -0.4, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(255,255,255,0.32)';
+    c.fill();
+    c.restore();
+  } else if (kind === 'ghost-valid' || kind === 'ghost-invalid') {
+    const good = kind === 'ghost-valid';
+    traceHex(c, cx, cy, size * 0.94);
+    c.fillStyle = good ? 'rgba(134,193,100,0.55)' : 'rgba(226,92,69,0.5)';
+    c.fill();
+    c.lineWidth = Math.max(1, size * 0.09);
+    c.strokeStyle = good ? '#5C8F3C' : '#B5392A';
+    c.stroke();
+  }
+  if (fxProgress !== undefined) {
+    traceHex(c, cx, cy, size * (0.94 + 0.45 * fxProgress));
+    c.fillStyle = 'rgba(255, 247, 214, ' + (1 - fxProgress) + ')';
+    c.fill();
+  }
+}
+
+function drawBoardBackdrop() {
+  const boardOriginX = layout.boardOriginX, boardOriginY = layout.boardOriginY, boardHexSize = layout.boardHexSize;
+  const r = boardHexSize * (RADIUS + 1.4);
+  const g = ctx.createRadialGradient(boardOriginX, boardOriginY, r * 0.15, boardOriginX, boardOriginY, r);
+  g.addColorStop(0, 'rgba(255, 214, 140, 0.18)');
+  g.addColorStop(1, 'rgba(255, 214, 140, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(boardOriginX, boardOriginY, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBoard(now) {
+  const boardOriginX = layout.boardOriginX, boardOriginY = layout.boardOriginY, boardHexSize = layout.boardHexSize;
+  drawBoardBackdrop();
+
+  for (const cell0 of gameBoard.cells) {
+    const q = cell0.q, r = cell0.r;
+    const p = axialToPixel(q, r, boardHexSize);
+    const occupied = gameBoard.map.get(cellKey(q, r)).occupied;
+    drawCell(ctx, boardOriginX + p.x, boardOriginY + p.y, boardHexSize, occupied ? 'filled' : 'empty');
+  }
+
+  if (drag && drag.active && drag.candidate) {
+    const originQ = drag.candidate.originQ, originR = drag.candidate.originR, valid = drag.candidate.valid;
+    for (const cell1 of drag.shape.cells) {
+      const dq = cell1[0], dr = cell1[1];
+      const q = originQ + dq, r = originR + dr;
+      if (!gameBoard.map.has(cellKey(q, r))) continue;
+      const p = axialToPixel(q, r, boardHexSize);
+      drawCell(ctx, boardOriginX + p.x, boardOriginY + p.y, boardHexSize, valid ? 'ghost-valid' : 'ghost-invalid');
+    }
+  }
+
+  for (const fx of clearFx) {
+    const t = (now - fx.start) / CLEAR_FX_DURATION;
+    if (t >= 1) continue;
+    const p = axialToPixel(fx.q, fx.r, boardHexSize);
+    drawCell(ctx, boardOriginX + p.x, boardOriginY + p.y, boardHexSize, 'empty', t);
+  }
+}
+
+function drawPieceCluster(shape, cx, cy, size) {
+  const offX = shape.centerOffsetX * size, offY = shape.centerOffsetY * size;
+  for (const cell2 of shape.cells) {
+    const dq = cell2[0], dr = cell2[1];
+    const p = axialToPixel(dq, dr, size);
+    drawCell(ctx, cx + p.x - offX, cy + p.y - offY, size, 'filled');
+  }
+}
+
+function drawTray() {
+  const traySlots = layout.traySlots, miniHexSize = layout.miniHexSize, boardAreaHeight = layout.boardAreaHeight, trayHeight = layout.trayHeight, cssWidth = layout.cssWidth;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  ctx.fillRect(0, boardAreaHeight, cssWidth, trayHeight);
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  ctx.fillRect(0, boardAreaHeight, cssWidth, 2);
+
+  for (let i = 0; i < 3; i++) {
+    const slot = traySlots[i];
+    const cardW = slot.w - 14, cardH = trayHeight - 20;
+    traceRoundRect(ctx, slot.cx - cardW / 2, slot.cy - cardH / 2, cardW, cardH, 14);
+    ctx.fillStyle = 'rgba(255, 246, 224, 0.08)';
+    ctx.fill();
+
+    const shape = trayPieces[i];
+    if (!shape) continue;
+    if (drag && drag.active && drag.slotIndex === i) continue;
+    if (snapBack && snapBack.slotIndex === i) continue;
+
+    drawPieceCluster(shape, slot.cx, slot.cy, miniHexSize);
+  }
+}
+
+function drawDraggedPiece() {
+  if (!drag || !drag.active) return;
+  const shape = drag.shape;
+  const size = layout.boardHexSize;
+  const ref = shape.cells[shape.refIndex];
+  const refPixel = axialToPixel(ref[0], ref[1], size);
+  const anchorX = drag.pointerX;
+  const anchorY = drag.pointerY - drag.liftOffset;
+  for (const cell3 of shape.cells) {
+    const dq = cell3[0], dr = cell3[1];
+    const p = axialToPixel(dq, dr, size);
+    drawCell(ctx, anchorX + (p.x - refPixel.x), anchorY + (p.y - refPixel.y), size, 'filled');
+  }
+}
+
+function drawSnapBack(now) {
+  if (!snapBack) return;
+  const t = Math.min(1, (now - snapBack.start) / SNAPBACK_DURATION);
+  const e = 1 - Math.pow(1 - t, 3);
+  const shape = snapBack.shape;
+  const size = layout.boardHexSize + (layout.miniHexSize - layout.boardHexSize) * e;
+  const toSlot = layout.traySlots[snapBack.slotIndex];
+  const cx = snapBack.fromX + (toSlot.cx - snapBack.fromX) * e;
+  const cy = snapBack.fromY + (toSlot.cy - snapBack.fromY) * e;
+  const offX = shape.centerOffsetX * size, offY = shape.centerOffsetY * size;
+  for (const cell4 of shape.cells) {
+    const dq = cell4[0], dr = cell4[1];
+    const p = axialToPixel(dq, dr, size);
+    drawCell(ctx, cx + p.x - offX, cy + p.y - offY, size, 'filled');
+  }
+  if (t >= 1) snapBack = null;
+}
+
+function render(now) {
+  ctx.clearRect(0, 0, layout.cssWidth, layout.cssHeight);
+  drawBoard(now);
+  drawTray();
+  drawDraggedPiece();
+  drawSnapBack(now);
+  clearFx = clearFx.filter((fx) => (now - fx.start) < CLEAR_FX_DURATION);
+}
+
+function loop(now) {
+  if (layout && gameState) render(now);
+  requestAnimationFrame(loop);
+}
+
+function getCanvasLocalPos(evt) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+}
+
+function updateDragCandidate() {
+  const shape = drag.shape;
+  const size = layout.boardHexSize;
+  const ref = shape.cells[shape.refIndex];
+  const anchorX = drag.pointerX;
+  const anchorY = drag.pointerY - drag.liftOffset;
+  const localX = anchorX - layout.boardOriginX;
+  const localY = anchorY - layout.boardOriginY;
+  const axialTarget = pixelToAxial(localX, localY, size);
+  const originQ = axialTarget.q - ref[0];
+  const originR = axialTarget.r - ref[1];
+  const valid = canPlace(gameBoard, shape.cells, originQ, originR);
+  drag.candidate = { originQ: originQ, originR: originR, valid: valid };
+}
+
+function startSnapBack(slotIndex, shape, anchorX, anchorY) {
+  const size = layout.boardHexSize;
+  const ref = shape.cells[shape.refIndex];
+  const refPixel = axialToPixel(ref[0], ref[1], size);
+  const fromX = anchorX - refPixel.x + shape.centerOffsetX * size;
+  const fromY = anchorY - refPixel.y + shape.centerOffsetY * size;
+  snapBack = { slotIndex: slotIndex, shape: shape, fromX: fromX, fromY: fromY, start: performance.now() };
+}
+
+function endDrag(commit) {
+  if (!drag || !drag.active) return;
+  if (commit && drag.candidate && drag.candidate.valid) {
+    commitPlacement(drag.slotIndex, drag.shape, drag.candidate.originQ, drag.candidate.originR);
+  } else {
+    startSnapBack(drag.slotIndex, drag.shape, drag.pointerX, drag.pointerY - drag.liftOffset);
+  }
+  drag = null;
+}
+
+/* ============ Boosters usable during a puzzle round — purely additive, board-clearing helpers ============ */
+
+let activeBooster = null;
+
+function neighborsOf(q, r) {
+  return DIRS.map((d) => ({ q: q + d[0], r: r + d[1] }));
+}
+
+function clearBoardCellAt(q, r) {
+  const cell = gameBoard.map.get(cellKey(q, r));
+  if (cell && cell.occupied) {
+    cell.occupied = false;
+    clearFx.push({ q: q, r: r, start: performance.now() });
+    return true;
+  }
+  return false;
+}
+
+function applyHammerAt(q, r) {
+  let count = 0;
+  if (clearBoardCellAt(q, r)) count++;
+  for (const n of neighborsOf(q, r)) {
+    if (count >= 3) break;
+    if (clearBoardCellAt(n.q, n.r)) count++;
+  }
+  return count > 0;
+}
+
+function applyBombAt(q, r) {
+  let count = 0;
+  if (clearBoardCellAt(q, r)) count++;
+  for (const n of neighborsOf(q, r)) if (clearBoardCellAt(n.q, n.r)) count++;
+  return count > 0;
+}
+
+function applyLaserAt(q, r) {
+  const throughPoint = LINES.filter((line) => line.some((c) => c.q === q && c.r === r));
+  if (throughPoint.length === 0) return false;
+  let best = throughPoint[0], bestOcc = -1;
+  for (const line of throughPoint) {
+    const occ = line.filter((c) => { const cell = gameBoard.map.get(cellKey(c.q, c.r)); return cell && cell.occupied; }).length;
+    if (occ > bestOcc) { bestOcc = occ; best = line; }
+  }
+  let count = 0;
+  for (const c of best) if (clearBoardCellAt(c.q, c.r)) count++;
+  return count > 0;
+}
+
+function useBoosterAt(type, q, r) {
+  if (!gameState || (gameState.boosters[type] || 0) <= 0) return false;
+  let applied = false;
+  if (type === 'hammer') applied = applyHammerAt(q, r);
+  else if (type === 'bomb') applied = applyBombAt(q, r);
+  else if (type === 'laser') applied = applyLaserAt(q, r);
+  if (!applied) return false;
+  gameState.boosters[type] -= 1;
+  activeBooster = null;
+  saveGameState();
+  renderBoosterBar();
+  return true;
+}
+
+function renderBoosterBar() {
+  if (!gameState) return;
+  ['hammer', 'bomb', 'laser'].forEach((type) => {
+    const count = gameState.boosters[type] || 0;
+    boosterCountEls[type].textContent = count;
+    boosterBtns[type].classList.toggle('empty', count === 0);
+    boosterBtns[type].classList.toggle('armed', activeBooster === type);
+  });
+  boosterHintEl.classList.toggle('hidden', !activeBooster);
+}
+
+function armBooster(type) {
+  if (!gameState || (gameState.boosters[type] || 0) <= 0) { activeBooster = null; renderBoosterBar(); return; }
+  activeBooster = (activeBooster === type) ? null : type;
+  renderBoosterBar();
+}
+
+function wireBoosterBar() {
+  ['hammer', 'bomb', 'laser'].forEach((type) => {
+    boosterBtns[type].addEventListener('click', () => armBooster(type));
+  });
+}
+
+function wireInput() {
+  canvas.addEventListener('pointerdown', function (e) {
+    if (activeBooster) {
+      const boosterPos = getCanvasLocalPos(e);
+      if (boosterPos.y < layout.boardAreaHeight) {
+        const localX = boosterPos.x - layout.boardOriginX;
+        const localY = boosterPos.y - layout.boardOriginY;
+        const axial = pixelToAxial(localX, localY, layout.boardHexSize);
+        useBoosterAt(activeBooster, axial.q, axial.r);
+        return;
+      }
+    }
+    if (drag) return;
+    const pos = getCanvasLocalPos(e);
+    if (pos.y < layout.boardAreaHeight) return;
+    const slotIndex = clamp(Math.floor(pos.x / (layout.cssWidth / 3)), 0, 2);
+    const shape = trayPieces[slotIndex];
+    if (!shape) return;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    const lift = e.pointerType === 'touch' ? Math.round(layout.boardHexSize * 1.7 + 26) : 0;
+    drag = { active: true, slotIndex: slotIndex, shape: shape, pointerId: e.pointerId, pointerX: pos.x, pointerY: pos.y, liftOffset: lift, candidate: null };
+    updateDragCandidate();
+  });
+
+  canvas.addEventListener('pointermove', function (e) {
+    if (!drag || !drag.active || e.pointerId !== drag.pointerId) return;
+    const pos = getCanvasLocalPos(e);
+    drag.pointerX = pos.x; drag.pointerY = pos.y;
+    updateDragCandidate();
+    e.preventDefault();
+  });
+
+  canvas.addEventListener('pointerup', function (e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    endDrag(true);
+  });
+
+  canvas.addEventListener('pointercancel', function (e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    endDrag(false);
+  });
+}
+
+function updateHud() {
+  honeyCountEl.textContent = roundHoney;
+  scoreCountEl.textContent = roundScore;
+}
+
+function spawnFloatingText(text, x, y) {
+  const el = document.createElement('div');
+  el.className = 'float-pop';
+  el.textContent = text;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  floatLayer.appendChild(el);
+  setTimeout(function () { el.remove(); }, 1150);
+}
+
+let comboBannerTimer = null;
+function showComboBanner(linesCleared) {
+  comboBanner.textContent = 'Комбо ×' + linesCleared + '!';
+  comboBanner.classList.remove('hidden');
+  comboBanner.classList.remove('combo-pop');
+  void comboBanner.offsetWidth;
+  comboBanner.classList.add('combo-pop');
+  clearTimeout(comboBannerTimer);
+  comboBannerTimer = setTimeout(function () { comboBanner.classList.add('hidden'); }, 1250);
+}
+
+function dealNewBatch() {
+  let candidates = WEIGHTED_POOL.filter((s) => canPlaceAnywhere(gameBoard, s.cells));
+  if (candidates.length === 0) candidates = WEIGHTED_POOL;
+  for (let i = 0; i < 3; i++) {
+    trayPieces[i] = candidates[Math.floor(Math.random() * candidates.length)];
+  }
+}
+
+function updateRerollButton() {
+  const owns = hasBee(gameState, 'bee_scout');
+  rerollBtn.classList.toggle('hidden', !owns || rerollUsedThisRound);
+}
+
+function commitPlacement(slotIndex, shape, originQ, originR) {
+  placeShape(gameBoard, shape.cells, originQ, originR);
+  trayPieces[slotIndex] = null;
+
+  const full = findFullLines(gameBoard, LINES);
+  if (full.length > 0) {
+    const clearedKeys = clearLines(gameBoard, full);
+    const linesCleared = full.length;
+    const cellsCleared = clearedKeys.size;
+    const comboMult = linesCleared;
+    const hiveMult = 1 + (gameState.hive.level - 1) * 0.05;
+    const beeTierMult = 1 + currentBeeTier(gameState).bonusPct / 100;
+    let honeyGain = Math.round(cellsCleared * comboMult * hiveMult * beeTierMult);
+    if (hasBee(gameState, 'bee_queen')) honeyGain = Math.round(honeyGain * 1.1);
+    const scoreGain = cellsCleared * 10 * comboMult;
+
+    roundHoney += honeyGain;
+    roundScore += scoreGain;
+    roundBestCombo = Math.max(roundBestCombo, linesCleared);
+    roundLinesCleared += linesCleared;
+    if (linesCleared >= 2) roundComboCount += 1;
+    updateHud();
+
+    const now = performance.now();
+    let sumX = 0, sumY = 0, cnt = 0;
+    for (const key of clearedKeys) {
+      const parts = key.split(',');
+      const q = Number(parts[0]), r = Number(parts[1]);
+      clearFx.push({ q: q, r: r, start: now });
+      const p = axialToPixel(q, r, layout.boardHexSize);
+      sumX += layout.boardOriginX + p.x;
+      sumY += layout.boardOriginY + p.y;
+      cnt++;
+    }
+    spawnFloatingText('+' + honeyGain + ' 🍯', sumX / cnt, sumY / cnt);
+    if (linesCleared >= 2) showComboBanner(linesCleared);
+  }
+
+  if (trayPieces.every((p) => p === null)) dealNewBatch();
+  if (!anyPieceHasAMove(gameBoard, trayPieces)) triggerGameOver();
+}
+
+function triggerGameOver() {
+  gameState.honey += roundHoney;
+  gameState.pollen += roundComboCount;
+  updateQuestsProgress(gameState, { lines: roundLinesCleared, honey: roundHoney, combo: roundBestCombo, rounds: 1 });
+  addXp(gameState, 5 + roundLinesCleared * 2);
+  gameState.stats.roundsPlayed += 1;
+  gameState.stats.bestScore = Math.max(gameState.stats.bestScore, roundScore);
+  saveGameState();
+
+  const isRecord = roundScore > 0 && roundScore > roundStartBest;
+  sessionBest = Math.max(sessionBest, roundScore);
+
+  resultHoney.textContent = roundHoney;
+  resultScore.textContent = roundScore;
+  resultCombo.textContent = '×' + roundBestCombo;
+  resultLines.textContent = roundLinesCleared;
+  recordNote.classList.toggle('hidden', !isRecord);
+  gameoverOverlay.classList.remove('hidden');
+}
+
+function startPuzzleRound() {
+  gameBoard = createBoard(RADIUS);
+  roundHoney = 0; roundScore = 0; roundBestCombo = 0; roundLinesCleared = 0; roundComboCount = 0;
+  rerollUsedThisRound = false;
+  clearFx = []; drag = null; snapBack = null;
+  activeBooster = null;
+  roundStartBest = sessionBest;
+  dealNewBatch();
+  updateHud();
+  updateRerollButton();
+  renderBoosterBar();
+}
+
+function showScreen(name) {
+  const all = document.querySelectorAll('.screen');
+  for (let i = 0; i < all.length; i++) all[i].classList.remove('active');
+  document.getElementById('screen-' + name).classList.add('active');
+
+  const navBtns = document.querySelectorAll('.nav-btn-v2[data-nav]');
+  for (let i = 0; i < navBtns.length; i++) {
+    navBtns[i].classList.toggle('active', navBtns[i].dataset.nav === name);
+  }
+}
+
+function navigateTo(name) {
+  showScreen(name);
+  if (name === 'apiary') enterApiary();
+  else if (name === 'bees') renderBeesScreen();
+  else if (name === 'quests') renderQuestsScreen();
+  else if (name === 'shop') renderShopScreen();
+  else if (name === 'profile') renderProfileScreen();
+  else if (name === 'puzzle') startPuzzleRound();
+}
+
+function updateAllCurrencyDisplays() {
+  resHoneyEl.textContent = Math.floor(gameState.honey);
+  resHoneyGoalEl.textContent = gameState.hive.upgradeCost;
+  resDiamondsEl.textContent = gameState.diamonds;
+  const unlockedRing = gameState.territory.filter((t) => t.unlocked).length;
+  resTerritoryEl.textContent = unlockedRing + '/' + gameState.territory.length;
+  beesPollenEl.textContent = gameState.pollen;
+  shopHoneyEl.textContent = gameState.honey;
+  shopDiamondsEl.textContent = gameState.diamonds;
+}
+
+function previewDailyStreakDay(state, now) {
+  const today = dateStr(now);
+  if (state.daily.lastClaimDate === today) return null;
+  const yesterday = dateStr(now - 24 * 3600 * 1000);
+  return (state.daily.lastClaimDate === yesterday) ? (state.daily.streak % 7) + 1 : 1;
+}
+
+function enterApiary() {
+  const now = Date.now();
+  refreshDaily(gameState, now);
+  gameState.lastVisitTimestamp = now;
+  saveGameState();
+  renderApiaryScreen();
+
+  const previewDay = previewDailyStreakDay(gameState, now);
+  if (previewDay != null) {
+    idleModalEmojiEl.textContent = previewDay === 7 ? '🌟' : '🍯';
+    idleModalTitleEl.textContent = 'День ' + previewDay + ' из 7';
+    idleModalTextEl.textContent = previewDay === 7
+      ? 'Ты собрал полную неделю визитов! Забирай Золотой Цветок и бонус бриллиантов.'
+      : 'Заходи на пасеку каждый день, чтобы не потерять серию визитов — награда уже ждёт.';
+    idleOverlay.classList.remove('hidden');
+  }
+}
+
+/* ============ Territory scene — flat hex math for positioning only ============
+   No hex-tile artwork anymore (see CSS comment above) — this just places small square
+   icons at hive/ring-1 coordinates over the single background scene. */
+
+function farmAxialToPixel(q, r, size) {
+  const x = size * Math.sqrt(3) * (q + r / 2);
+  const y = size * 1.5 * r;
+  return { x: x, y: y };
+}
+
+let farmLayout = null;
+let hivePopoverOpen = false;
+
+function computeFarmLayout() {
+  if (!farmStageEl) return;
+  const rect = farmStageEl.getBoundingClientRect();
+  const cssWidth = Math.max(1, rect.width);
+  const cssHeight = Math.max(1, rect.height);
+  const allPts = [{ q: 0, r: 0 }].concat(FARM_RING_ORDER).map((p) => farmAxialToPixel(p.q, p.r, 1));
+  const maxX = Math.max(0.001, ...allPts.map((p) => Math.abs(p.x)));
+  const maxY = Math.max(0.001, ...allPts.map((p) => Math.abs(p.y)));
+  const size = Math.max(20, Math.min((cssWidth * 0.6) / maxX, (cssHeight * 0.48) / maxY, 48));
+  farmLayout = { originX: cssWidth / 2, originY: cssHeight * 0.46, size: size };
+}
+
+function showFarmToast(text) {
+  const t = document.createElement('div');
+  t.className = 'farm-toast';
+  t.textContent = text;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 1800);
+}
+
+function onHiveTap() { hivePopoverOpen = !hivePopoverOpen; renderFarmOverlay(); }
+
+function onTerritoryTap(index) {
+  if (unlockTerritoryTile(gameState, index)) {
+    saveGameState();
+    renderApiaryScreen();
+  } else {
+    showFarmToast('Не хватает мёда на расширение');
+  }
+}
+
+// The 8-flower collection (names confirmed for the shop). Tiles pick a flower deterministically
+// by position so the territory reads as varied rather than one repeated icon everywhere.
+const FLOWER_DEFS = {
+  daisy: { name: 'Ромашка', icon: 'assets/flower_daisy.png' },
+  dandelion: { name: 'Одуванчик', icon: 'assets/flower_dandelion.png' },
+  clover: { name: 'Клевер', icon: 'assets/flower_clover.png' },
+  bluebell: { name: 'Колокольчик', icon: 'assets/flower_bluebell.png' },
+  wild_rose: { name: 'Дикая роза', icon: 'assets/flower_wildrose.png' },
+  lavender: { name: 'Лаванда', icon: 'assets/flower_lavender.png' },
+  buttercup: { name: 'Лютик', icon: 'assets/flower_buttercup.png' },
+  tulip: { name: 'Тюльпан', icon: 'assets/flower_tulip.png' },
+};
+const FLOWER_ORDER = ['tulip', 'clover', 'lavender', 'buttercup', 'daisy', 'dandelion', 'bluebell', 'wild_rose'];
+function flowerIconForTile(index) { return FLOWER_DEFS[FLOWER_ORDER[index % FLOWER_ORDER.length]].icon; }
+
+function makeFarmTile(src, size, x, y, clickable) {
+  const wrap = document.createElement('div');
+  wrap.className = 'farm-tile' + (clickable ? ' farm-tile--clickable' : '');
+  wrap.style.left = x + 'px';
+  wrap.style.top = y + 'px';
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = '';
+  img.style.width = Math.round(size * 1.15) + 'px';
+  img.style.height = Math.round(size * 1.15) + 'px';
+  wrap.appendChild(img);
+  return wrap;
+}
+
+function renderFarmOverlay() {
+  if (!farmLayout || !gameState) return;
+  farmOverlayEl.innerHTML = '';
+  const size = farmLayout.size;
+  const toScreen = (q, r) => {
+    const p = farmAxialToPixel(q, r, size);
+    return { x: farmLayout.originX + p.x, y: farmLayout.originY + p.y };
+  };
+
+  gameState.territory.forEach((tile, i) => {
+    const p = toScreen(tile.q, tile.r);
+    if (!tile.unlocked) {
+      const cost = territoryUnlockCost(gameState);
+      const el = makeFarmTile('assets/icon_lock.png', size, p.x, p.y, true);
+      const costEl = document.createElement('div');
+      costEl.className = 'farm-tile-cost';
+      costEl.innerHTML = '<img src="assets/icon_honey.png" alt=""><span>' + cost + '</span>';
+      el.appendChild(costEl);
+      el.addEventListener('click', () => onTerritoryTap(i));
+      farmOverlayEl.appendChild(el);
+    } else if (tile.starterFlower || tile.decorId) {
+      farmOverlayEl.appendChild(makeFarmTile(flowerIconForTile(i), size, p.x, p.y, false));
+    } else {
+      // Unlocked and nothing planted yet — shown as a productive honey tile
+      // (purely visual flavor; the "60m" tag is not a real timer).
+      const el = makeFarmTile('assets/icon_honey.png', size, p.x, p.y, false);
+      const tag = document.createElement('div');
+      tag.className = 'farm-tile-tag';
+      tag.textContent = '60М МЁД';
+      el.appendChild(tag);
+      farmOverlayEl.appendChild(el);
+    }
+  });
+
+  const hp = toScreen(0, 0);
+  const hiveImg = document.createElement('img');
+  hiveImg.className = 'farm-hive-img';
+  hiveImg.src = 'assets/hive.png';
+  hiveImg.alt = '';
+  const hiveSize = Math.round(size * 1.9);
+  hiveImg.style.left = hp.x + 'px';
+  hiveImg.style.top = hp.y + 'px';
+  hiveImg.style.width = hiveSize + 'px';
+  hiveImg.style.height = hiveSize + 'px';
+  hiveImg.addEventListener('click', onHiveTap);
+  farmOverlayEl.appendChild(hiveImg);
+
+  if (hivePopoverOpen) {
+    const afford = gameState.honey >= gameState.hive.upgradeCost;
+    const pop = document.createElement('div');
+    pop.className = 'farm-hive-popover';
+    pop.style.left = hp.x + 'px';
+    pop.style.top = (hp.y - size * 0.95) + 'px';
+    pop.innerHTML =
+      '<div class="fhp-title">Улей · уровень ' + gameState.hive.level + '</div>' +
+      '<div class="fhp-rate">+5% мёда за линию за каждый уровень (сейчас +' + Math.round((gameState.hive.level - 1) * 5) + '%)</div>' +
+      '<button class="small-action-btn" id="hive-upgrade-btn"' + (afford ? '' : ' disabled') + '>Улучшить · ' + gameState.hive.upgradeCost + '<img class="inline-icon" src="assets/icon_honey.png" alt=""></button>';
+    farmOverlayEl.appendChild(pop);
+    const upBtn = document.getElementById('hive-upgrade-btn');
+    if (upBtn) upBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (upgradeHive(gameState)) { saveGameState(); renderApiaryScreen(); }
+    });
+  }
+}
+
+// Local-only "rating" — not a league, just a single growing number for the top-left
+// badge, blended from progress you've already made (no new save fields needed).
+function computeRating(state) {
+  const unlockedRing = state.territory.filter((t) => t.unlocked).length;
+  return Math.round(
+    state.level * 100 +
+    state.hive.level * 50 +
+    state.beeTier * 80 +
+    unlockedRing * 30 +
+    state.honey +
+    state.diamonds * 20
+  );
+}
+
+function updateLevelWidget() {
+  levelNumEl.textContent = gameState.level;
+  const need = xpForLevel(gameState.level);
+  levelXpFillEl.style.width = Math.round((gameState.xp / need) * 100) + '%';
+  ratingValueEl.textContent = computeRating(gameState);
+}
+
+function updateNavBadges() {
+  const now = Date.now();
+  refreshDaily(gameState, now);
+  // Kept distinct on purpose: the quests badge counts only the regular quest list,
+  // while daily-challenge readiness gets its own dot on the challenge button —
+  // so the two indicators never say the same thing twice.
+  const readyQuests = gameState.quests.filter((q) => q.completed).length;
+  navBadgeQuestsEl.textContent = String(readyQuests);
+  navBadgeQuestsEl.classList.toggle('hidden', readyQuests <= 0);
+
+  const dailyReady = gameState.daily.challenge.completed && !gameState.daily.challenge.claimed;
+  dailyChallengeDotEl.classList.toggle('hidden', !dailyReady);
+}
+
+let dailyPopoverOpen = false;
+
+function onDailyChallengeTap(e) {
+  e.stopPropagation();
+  dailyPopoverOpen = !dailyPopoverOpen;
+  renderDailyChallengePopover();
+}
+
+function renderDailyChallengePopover() {
+  const existing = document.getElementById('daily-challenge-popover');
+  if (existing) existing.remove();
+  if (!dailyPopoverOpen) return;
+  const c = gameState.daily.challenge;
+  const canClaim = c.completed && !c.claimed;
+  const pop = document.createElement('div');
+  pop.id = 'daily-challenge-popover';
+  pop.className = 'daily-challenge-popover';
+  pop.innerHTML =
+    '<div class="dcp-title"><img src="assets/icon_quest.png" alt="">Испытание дня</div>' +
+    '<div class="dcp-label">' + c.label.replace('{t}', c.target) + '</div>' +
+    '<div class="dcp-progress">' + Math.min(c.progress, c.target) + ' / ' + c.target + '</div>' +
+    (c.claimed
+      ? '<button class="small-action-btn" disabled>Забрано</button>'
+      : '<button class="small-action-btn" id="daily-challenge-claim-btn"' + (canClaim ? '' : ' disabled') + '>Забрать · ' + c.rewardHoney + '<img class="inline-icon" src="assets/icon_honey.png" alt=""></button>');
+  dailyChallengeBtnEl.parentElement.appendChild(pop);
+  const claimBtn = document.getElementById('daily-challenge-claim-btn');
+  if (claimBtn) claimBtn.addEventListener('click', (e2) => {
+    e2.stopPropagation();
+    if (claimDailyChallenge(gameState)) { saveGameState(); renderApiaryScreen(); }
+  });
+}
+
+function renderCalendarPanelPreview() {
+  const now = Date.now();
+  const previewDay = previewDailyStreakDay(gameState, now);
+  calendarPanelDaysEl.innerHTML = '';
+  [1, 3, 5, 7].forEach((d) => {
+    const card = document.createElement('div');
+    let cls = 'calendar-day-card-v2';
+    cls += (d <= gameState.daily.streak) ? ' done' : ' locked';
+    if (previewDay === d) cls += ' today';
+    card.className = cls;
+    card.innerHTML = '<img src="assets/calendar_day' + d + '.png" alt="">';
+    calendarPanelDaysEl.appendChild(card);
+  });
+}
+
+function openCalendarOverlay() {
+  const now = Date.now();
+  const previewDay = previewDailyStreakDay(gameState, now);
+  calendarSubEl.textContent = 'Серия визитов: ' + gameState.daily.streak + ' из 7 дней';
+  calendarGridEl.innerHTML = '';
+  for (let d = 1; d <= 7; d++) {
+    const cell = document.createElement('div');
+    let cls = 'calendar-cell';
+    if (d === 7) cls += ' gold';
+    if (d <= gameState.daily.streak) cls += ' done';
+    if (previewDay === d) cls += ' today';
+    cell.className = cls;
+    cell.textContent = d === 7 ? '🌟' : (d <= gameState.daily.streak ? '✓' : String(d));
+    calendarGridEl.appendChild(cell);
+  }
+  calendarOverlay.classList.remove('hidden');
+}
+
+// Ambient flying bees — decorative only, capped low so the hub never feels busy or laggy.
+// Built once (guarded by childElementCount) since each bee's CSS animation loops forever
+// on its own; re-rendering the screen shouldn't restart or duplicate them.
+const FARM_BEE_COUNT = 3;
+const FARM_BEE_VARIANTS = ['a', 'b', 'c'];
+
+function renderFarmBees() {
+  if (!farmBeesEl) return;
+  const icon = currentBeeTier(gameState).icon;
+  if (farmBeesEl.childElementCount === 0) {
+    for (let i = 0; i < FARM_BEE_COUNT; i++) {
+      const bee = document.createElement('div');
+      bee.className = 'farm-bee farm-bee--' + FARM_BEE_VARIANTS[i % FARM_BEE_VARIANTS.length];
+      const pathDuration = 17 + Math.random() * 7; // 17–24s, unhurried loop
+      const flutterDuration = 0.45 + Math.random() * 0.25;
+      bee.style.animationDuration = pathDuration.toFixed(1) + 's, ' + flutterDuration.toFixed(2) + 's';
+      // Negative delay = start partway through the loop, so bees don't all bunch up at once.
+      bee.style.animationDelay = (-Math.random() * pathDuration).toFixed(1) + 's, 0s';
+      const img = document.createElement('img');
+      img.alt = '';
+      bee.appendChild(img);
+      farmBeesEl.appendChild(bee);
+    }
+  }
+  // Ambient bees always show the player's current tier, so ranking up is visible on the hub.
+  farmBeesEl.querySelectorAll('img').forEach((img) => { if (img.src.indexOf(icon) === -1) img.src = icon; });
+}
+
+function renderApiaryScreen() {
+  updateAllCurrencyDisplays();
+  updateLevelWidget();
+  updateNavBadges();
+  renderCalendarPanelPreview();
+  hivePopoverOpen = false;
+  computeFarmLayout();
+  renderFarmOverlay();
+  renderFarmBees();
+  dailyPopoverOpen = false;
+  renderDailyChallengePopover();
+}
+
+const BEE_ICON_ACCENT = { bee_queen: ' bee-icon--queen', bee_scout: ' bee-icon--scout' };
+
+function renderBeesScreen() {
+  updateAllCurrencyDisplays();
+  beesContentEl.innerHTML = '';
+  for (const bee of gameState.bees) {
+    const def = BEE_DEFS[bee.id];
+    const accent = BEE_ICON_ACCENT[bee.id] || '';
+    const card = document.createElement('div');
+    card.className = 'bee-card';
+    if (bee.owned) {
+      card.innerHTML =
+        '<div class="bee-icon' + accent + '">' + def.icon + '</div>' +
+        '<div class="bee-info"><div class="bee-name">' + def.name + '</div><div class="bee-desc">' + def.description + '</div></div>' +
+        '<div class="bee-badge">Открыта</div>';
+    } else {
+      const currencyIcon = def.costCurrency === 'pollen' ? '🌸' : '🍯';
+      card.innerHTML =
+        '<div class="bee-icon dim' + accent + '">' + def.icon + '</div>' +
+        '<div class="bee-info"><div class="bee-name">' + def.name + '</div><div class="bee-desc">' + def.description + '</div></div>' +
+        '<button class="small-action-btn" data-action="unlock-bee" data-id="' + bee.id + '"' +
+          (gameState[def.costCurrency] < def.cost ? ' disabled' : '') + '>Открыть · ' + def.cost + currencyIcon + '</button>';
+    }
+    beesContentEl.appendChild(card);
+  }
+}
+
+function questRewardText(q) {
+  const parts = [];
+  if (q.rewardHoney) parts.push(q.rewardHoney + '🍯');
+  if (q.rewardPollen) parts.push(q.rewardPollen + '🌸');
+  return parts.join(' ');
+}
+
+function renderQuestsScreen() {
+  questsContentEl.innerHTML = '';
+
+  const dc = gameState.daily.challenge;
+  const dcShown = Math.min(dc.progress, dc.target);
+  const dcPct = Math.round((dcShown / dc.target) * 100);
+  const dcCard = document.createElement('div');
+  dcCard.className = 'quest-card';
+  dcCard.innerHTML =
+    '<div class="quest-label">🎯 Испытание дня: ' + dc.label.replace('{t}', dc.target) + '</div>' +
+    '<div class="quest-progress-track"><div class="quest-progress-fill" style="width:' + dcPct + '%"></div></div>' +
+    '<div class="quest-progress-text">' + dcShown + '/' + dc.target + '</div>' +
+    (dc.completed && !dc.claimed ? '<button class="small-action-btn" data-action="claim-daily">Забрать · ' + dc.rewardHoney + '🍯</button>' : '') +
+    (dc.claimed ? '<div class="bee-badge">Забрано</div>' : '');
+  questsContentEl.appendChild(dcCard);
+
+  gameState.quests.forEach((q, i) => {
+    const shown = Math.min(q.progress, q.target);
+    const pct = Math.round((shown / q.target) * 100);
+    const card = document.createElement('div');
+    card.className = 'quest-card';
+    card.innerHTML =
+      '<div class="quest-label">' + q.label.replace('{t}', q.target) + '</div>' +
+      '<div class="quest-progress-track"><div class="quest-progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="quest-progress-text">' + shown + '/' + q.target + '</div>' +
+      (q.completed ? '<button class="small-action-btn" data-action="claim-quest" data-index="' + i + '">Забрать · ' + questRewardText(q) + '</button>' : '');
+    questsContentEl.appendChild(card);
+  });
+}
+
+function renderShopScreen() {
+  updateAllCurrencyDisplays();
+  shopContentEl.innerHTML = '';
+
+  const beeLabel = document.createElement('div');
+  beeLabel.className = 'section-label';
+  beeLabel.textContent = 'Пчёлы';
+  shopContentEl.appendChild(beeLabel);
+
+  BEE_TIERS.forEach((t) => {
+    const card = document.createElement('div');
+    card.className = 'bee-card';
+    if (t.tier < gameState.beeTier) {
+      card.innerHTML =
+        '<img class="bee-tier-icon dim" src="' + t.icon + '" alt="">' +
+        '<div class="bee-info"><div class="bee-name">' + t.name + '</div></div>' +
+        '<div class="bee-badge">Пройдено</div>';
+    } else if (t.tier === gameState.beeTier) {
+      card.innerHTML =
+        '<img class="bee-tier-icon" src="' + t.icon + '" alt="">' +
+        '<div class="bee-info"><div class="bee-name">' + t.name + '</div><div class="bee-desc">' + (t.bonusPct > 0 ? '+' + t.bonusPct + '% мёда за линию' : 'Текущая пчела') + '</div></div>' +
+        '<div class="bee-badge">Текущая</div>';
+    } else if (t.tier === gameState.beeTier + 1) {
+      const levelOk = gameState.level >= t.requiredLevel;
+      const canBuy = levelOk && gameState.honey >= t.cost;
+      card.innerHTML =
+        '<img class="bee-tier-icon' + (canBuy ? '' : ' dim') + '" src="' + t.icon + '" alt="">' +
+        '<div class="bee-info"><div class="bee-name">' + t.name + '</div><div class="bee-desc">' +
+          (levelOk ? '+' + t.bonusPct + '% мёда за линию' : 'Нужен уровень ' + t.requiredLevel) + '</div></div>' +
+        '<button class="small-action-btn" data-action="buy-bee-tier"' + (canBuy ? '' : ' disabled') + '>Купить · ' + t.cost + '🍯</button>';
+    } else {
+      card.innerHTML =
+        '<img class="bee-tier-icon dim" src="' + t.icon + '" alt="">' +
+        '<div class="bee-info"><div class="bee-name">' + t.name + '</div><div class="bee-desc">Открывается на ур. ' + t.requiredLevel + '</div></div>';
+    }
+    shopContentEl.appendChild(card);
+  });
+
+  const boosterLabel = document.createElement('div');
+  boosterLabel.className = 'section-label';
+  boosterLabel.textContent = 'Бустеры';
+  shopContentEl.appendChild(boosterLabel);
+
+  for (const type of ['hammer', 'bomb', 'laser']) {
+    const def = BOOSTER_DEFS[type];
+    const owned = gameState.boosters[type] || 0;
+    const currencyIcon = def.currency === 'diamonds' ? '💎' : '🍯';
+    const card = document.createElement('div');
+    card.className = 'bee-card';
+    card.innerHTML =
+      '<div class="bee-icon">' + def.icon + '</div>' +
+      '<div class="bee-info"><div class="bee-name">' + def.name + ' · есть ' + owned + '</div><div class="bee-desc">' + def.desc + '</div></div>' +
+      '<button class="small-action-btn" data-action="buy-booster" data-id="' + type + '"' +
+        (gameState[def.currency] < def.cost ? ' disabled' : '') + '>Купить · ' + def.cost + currencyIcon + '</button>';
+    shopContentEl.appendChild(card);
+  }
+
+  const decorLabel = document.createElement('div');
+  decorLabel.className = 'section-label';
+  decorLabel.textContent = 'Украшения';
+  shopContentEl.appendChild(decorLabel);
+
+  for (const decor of gameState.decorations) {
+    const def = DECOR_DEFS[decor.id];
+    if (def.hidden) continue;
+    const accent = def.statue ? ' bee-icon--statue' : '';
+    const card = document.createElement('div');
+    card.className = 'bee-card';
+    if (decor.owned) {
+      card.innerHTML =
+        '<div class="bee-icon' + accent + '">' + def.icon + '</div>' +
+        '<div class="bee-info"><div class="bee-name">' + def.name + '</div></div>' +
+        '<div class="bee-badge">Куплено</div>';
+    } else {
+      card.innerHTML =
+        '<div class="bee-icon dim' + accent + '">' + def.icon + '</div>' +
+        '<div class="bee-info"><div class="bee-name">' + def.name + '</div></div>' +
+        '<button class="small-action-btn" data-action="buy-decor" data-id="' + decor.id + '"' +
+          (gameState.honey < def.cost ? ' disabled' : '') + '>Купить · ' + def.cost + '🍯</button>';
+    }
+    shopContentEl.appendChild(card);
+  }
+}
+
+function renderProfileScreen() {
+  const s = gameState;
+  const unlockedRing = s.territory.filter((t) => t.unlocked).length;
+  const ownedBees = s.bees.filter((b) => b.owned).length;
+  const ownedDecor = s.decorations.filter((d) => d.owned).length;
+  const rows = [
+    { label: 'Уровень', value: s.level },
+    { label: 'Улей · уровень', value: s.hive.level },
+    { label: 'Территория', value: unlockedRing + '/' + s.territory.length },
+    { label: 'Серия визитов', value: s.daily.streak + ' дн.' },
+    { label: 'Лучший счёт', value: s.stats.bestScore },
+    { label: 'Раундов сыграно', value: s.stats.roundsPlayed },
+    { label: 'Пчёл открыто', value: ownedBees + '/' + s.bees.length },
+    { label: 'Украшений куплено', value: ownedDecor },
+  ];
+  profileContentEl.innerHTML =
+    '<div class="results-grid">' +
+    rows.map((r) => '<div class="result"><span class="result-value">' + r.value + '</span><span class="result-label">' + r.label + '</span></div>').join('') +
+    '</div>';
+}
+
+function wireEconomyActions() {
+  beesContentEl.addEventListener('click', function (e) {
+    const btn = e.target.closest('button[data-action="unlock-bee"]');
+    if (!btn) return;
+    unlockBee(gameState, btn.dataset.id);
+    saveGameState();
+    renderBeesScreen();
+  });
+
+  shopContentEl.addEventListener('click', function (e) {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action, id = btn.dataset.id;
+    if (action === 'buy-decor') buyDecoration(gameState, id);
+    else if (action === 'buy-booster') buyBooster(gameState, id);
+    else if (action === 'buy-bee-tier') buyNextBeeTier(gameState);
+    saveGameState();
+    renderShopScreen();
+  });
+
+  questsContentEl.addEventListener('click', function (e) {
+    const claimBtn = e.target.closest('button[data-action="claim-quest"]');
+    const dailyBtn = e.target.closest('button[data-action="claim-daily"]');
+    if (claimBtn) {
+      claimQuest(gameState, Number(claimBtn.dataset.index));
+      saveGameState();
+      renderQuestsScreen();
+      updateAllCurrencyDisplays();
+    } else if (dailyBtn) {
+      claimDailyChallenge(gameState);
+      saveGameState();
+      renderQuestsScreen();
+      updateAllCurrencyDisplays();
+    }
+  });
+
+  const navButtons = document.querySelectorAll('[data-nav]');
+  for (let i = 0; i < navButtons.length; i++) {
+    navButtons[i].addEventListener('click', function () { navigateTo(this.dataset.nav); });
+  }
+
+  calendarPanelV2El.addEventListener('click', openCalendarOverlay);
+  dailyChallengeBtnEl.addEventListener('click', onDailyChallengeTap);
+  calendarCloseBtn.addEventListener('click', function () { calendarOverlay.classList.add('hidden'); });
+
+  resPlusBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    showFarmToast('Пополнение бриллиантов скоро появится');
+  });
+
+  rerollBtn.addEventListener('click', function () {
+    if (rerollUsedThisRound) return;
+    dealNewBatch();
+    rerollUsedThisRound = true;
+    updateRerollButton();
+  });
+
+  backToApiaryBtn.addEventListener('click', function () { navigateTo('apiary'); });
+  restartBtn.addEventListener('click', function () { startPuzzleRound(); });
+
+  startBtn.addEventListener('click', function () {
+    welcomeOverlay.classList.add('hidden');
+    gameState.seenWelcome = true;
+    saveGameState();
+  });
+
+  idleClaimBtn.addEventListener('click', function () {
+    claimDailyLogin(gameState, Date.now());
+    idleOverlay.classList.add('hidden');
+    saveGameState();
+    renderApiaryScreen();
+  });
+
+  apiaryBtn.addEventListener('click', function () {
+    gameoverOverlay.classList.add('hidden');
+    navigateTo('apiary');
+  });
+}
+
+function cacheDom() {
+  canvas = document.getElementById('game-canvas');
+  gameArea = document.getElementById('game-area');
+  floatLayer = document.getElementById('float-layer');
+  comboBanner = document.getElementById('combo-banner');
+  honeyCountEl = document.getElementById('honey-count');
+  scoreCountEl = document.getElementById('score-count');
+  restartBtn = document.getElementById('restart-btn');
+  rerollBtn = document.getElementById('reroll-btn');
+  backToApiaryBtn = document.getElementById('back-to-apiary-btn');
+
+  boosterBtns = {
+    hammer: document.getElementById('booster-btn-hammer'),
+    bomb: document.getElementById('booster-btn-bomb'),
+    laser: document.getElementById('booster-btn-laser'),
+  };
+  boosterCountEls = {
+    hammer: document.getElementById('booster-count-hammer'),
+    bomb: document.getElementById('booster-count-bomb'),
+    laser: document.getElementById('booster-count-laser'),
+  };
+  boosterHintEl = document.getElementById('booster-hint');
+
+  welcomeOverlay = document.getElementById('welcome-overlay');
+  startBtn = document.getElementById('start-btn');
+
+  idleOverlay = document.getElementById('idle-overlay');
+  idleModalEmojiEl = document.getElementById('idle-modal-emoji');
+  idleModalTitleEl = document.getElementById('idle-modal-title');
+  idleModalTextEl = document.getElementById('idle-modal-text');
+  idleClaimBtn = document.getElementById('idle-claim-btn');
+
+  calendarOverlay = document.getElementById('calendar-overlay');
+  calendarSubEl = document.getElementById('calendar-sub');
+  calendarGridEl = document.getElementById('calendar-grid');
+  calendarCloseBtn = document.getElementById('calendar-close-btn');
+
+  gameoverOverlay = document.getElementById('gameover-overlay');
+  apiaryBtn = document.getElementById('apiary-btn');
+  resultHoney = document.getElementById('result-honey');
+  resultScore = document.getElementById('result-score');
+  resultCombo = document.getElementById('result-combo');
+  resultLines = document.getElementById('result-lines');
+  recordNote = document.getElementById('record-note');
+
+  levelNumEl = document.getElementById('level-num');
+  levelXpFillEl = document.getElementById('level-xp-fill');
+  levelPlaqueWrapEl = document.getElementById('level-plaque-wrap');
+  ratingValueEl = document.getElementById('rating-value');
+  resHoneyEl = document.getElementById('res-honey');
+  resHoneyGoalEl = document.getElementById('res-honey-goal');
+  resDiamondsEl = document.getElementById('res-diamonds');
+  resPlusBtn = document.getElementById('res-plus-btn');
+  resTerritoryEl = document.getElementById('res-territory');
+  dailyChallengeBtnEl = document.getElementById('daily-challenge-btn');
+  dailyChallengeDotEl = document.getElementById('daily-challenge-dot');
+
+  calendarPanelV2El = document.getElementById('calendar-panel-v2');
+  calendarPanelDaysEl = document.getElementById('calendar-panel-days');
+  navBadgeQuestsEl = document.getElementById('nav-badge-quests');
+  navBadgeShopEl = document.getElementById('nav-badge-shop');
+
+  farmStageEl = document.getElementById('farm-stage');
+  farmOverlayEl = document.getElementById('farm-overlay');
+  farmBeesEl = document.getElementById('farm-bees');
+
+  beesContentEl = document.getElementById('bees-content');
+  beesPollenEl = document.getElementById('bees-pollen');
+  questsContentEl = document.getElementById('quests-content');
+  shopContentEl = document.getElementById('shop-content');
+  shopHoneyEl = document.getElementById('shop-honey');
+  shopDiamondsEl = document.getElementById('shop-diamonds');
+  profileContentEl = document.getElementById('profile-content');
+}
+
+async function boot() {
+  cacheDom();
+  gameState = await loadGameState();
+
+  computeLayout();
+  wireInput();
+  wireBoosterBar();
+  wireEconomyActions();
+  renderBoosterBar();
+
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(function () { computeLayout(); });
+    ro.observe(gameArea);
+    const farmRo = new ResizeObserver(function () {
+      if (document.getElementById('screen-apiary').classList.contains('active')) renderApiaryScreen();
+    });
+    farmRo.observe(farmStageEl);
+  } else {
+    window.addEventListener('resize', function () {
+      computeLayout();
+      if (document.getElementById('screen-apiary').classList.contains('active')) renderApiaryScreen();
+    });
+  }
+
+  showScreen('apiary');
+  enterApiary();
+  if (!gameState.seenWelcome) {
+    welcomeOverlay.classList.remove('hidden');
+  }
+
+  requestAnimationFrame(loop);
+}
+
+document.addEventListener('DOMContentLoaded', function () { boot(); });
+
+window.addEventListener('beforeunload', function () { try { saveGameState(); } catch (e) {} });
+</script>
+</body>
+</html>
