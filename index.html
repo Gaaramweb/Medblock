@@ -361,7 +361,14 @@
   }
   .hex-tile--clickable { cursor: pointer; pointer-events: auto; }
   .hex-tile--clickable:active { transform: translate(-50%, -50%) scale(0.93); }
-  .hex-tile--locked { background: linear-gradient(160deg, var(--hex-locked), var(--hex-locked-deep)); opacity: 0.88; }
+  /* The lock art (hex_locked.png) is already a full flat hex badge with its own
+     bevel + padlock baked in, so it's used as the tile's fill (cover-fit inside
+     our own clip-path mask) rather than drawn from a color + separate icon. */
+  .hex-tile--locked {
+    background-color: var(--hex-locked-deep);
+    background-image: url('assets/hex_locked.png');
+    background-size: cover; background-position: center;
+  }
   .hex-tile--empty { background: linear-gradient(160deg, var(--hex-empty), var(--hex-empty-deep)); }
   .hex-tile--planted { background: linear-gradient(160deg, #a9d97a, var(--hex-grass-deep)); }
   .hex-tile--hive { background: linear-gradient(160deg, var(--hex-hive), var(--hex-hive-deep)); z-index: 2; cursor: pointer; pointer-events: auto; }
@@ -376,6 +383,18 @@
     box-shadow: 0 2px 0 rgba(0,0,0,0.2); pointer-events: none;
   }
   .hex-tile-tag img { width: 11px; height: 11px; object-fit: contain; }
+
+  /* Decorative outer rings — same locked-hex art, further out from the 6 real
+     unlockable plots, purely to sell "the map keeps going". Not clickable, not
+     game state — just background dressing, faded a touch and clipped by
+     .farm-stage's overflow so it never claims the whole screen. */
+  .hex-tile--locked-deco {
+    background-color: var(--hex-locked-deep);
+    background-image: url('assets/hex_locked.png');
+    background-size: cover; background-position: center;
+    opacity: 0.6; pointer-events: none;
+  }
+  .hex-tile--locked-deco.ring-3 { opacity: 0.4; }
 
   /* Hive illustration — an unclipped accent layered on top of .hex-tile--hive so it
      can read as the "hero" of the map without being boxed in by the hex clip-path. */
@@ -512,12 +531,19 @@
     text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 7px;
   }
   .calendar-panel-v2-row { display: flex; gap: 6px; }
-  /* Each day card is one self-contained picture (frame + icon + reward text
-     already baked into calendar_dayN.png) — only a status treatment is added in CSS. */
-  .calendar-day-card-v2 { position: relative; display: flex; }
-  .calendar-day-card-v2 img { width: 62px; height: auto; object-fit: contain; display: block; border-radius: 10px; }
-  .calendar-day-card-v2.locked img { filter: grayscale(0.7) brightness(0.75); }
-  .calendar-day-card-v2.done img { filter: none; }
+  /* Cards are built from existing icons (honey/diamond/hive) + text — calendar_dayN.png
+     never existed as real files, so nothing here depends on per-day artwork. */
+  .calendar-day-card-v2 {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 46px; padding: 5px 2px 4px; border-radius: 10px; gap: 1px;
+    background: linear-gradient(160deg, #fffaf0, #ffe9bd);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 0 rgba(0,0,0,0.12);
+  }
+  .calendar-day-card-v2 .cdc-day { font-size: 0.48rem; font-weight: 900; color: var(--wood); text-transform: uppercase; }
+  .calendar-day-card-v2 .cdc-icon { width: 20px; height: 20px; object-fit: contain; }
+  .calendar-day-card-v2 .cdc-amount { font-size: 0.52rem; font-weight: 900; color: var(--wood-dark); }
+  .calendar-day-card-v2.locked { opacity: 0.55; filter: grayscale(0.6); }
+  .calendar-day-card-v2.done { background: linear-gradient(160deg, #eaffd8, #c7f0a0); opacity: 1; filter: none; }
   .calendar-day-card-v2.done::after {
     content: '✓'; position: absolute; top: -5px; right: -5px;
     width: 18px; height: 18px; border-radius: 50%;
@@ -526,7 +552,7 @@
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 0 0 2px var(--cream);
   }
-  .calendar-day-card-v2.today img { box-shadow: 0 0 0 2px var(--honey-deep); border-radius: 10px; }
+  .calendar-day-card-v2.today { box-shadow: 0 0 0 2px var(--honey-deep), inset 0 1px 0 rgba(255,255,255,0.6); }
 
   /* ============ Bottom nav v2 ============ */
   .bottom-nav-v2 {
@@ -1131,14 +1157,14 @@ const DECOR_DEFS = {
 // cost to buy in the shop, and grants a permanent +X% honey-per-line bonus once owned —
 // it replaces the previous tier (one bee that ranks up), not a separate pet per tier.
 const BEE_TIERS = [
-  { tier: 1, key: 'common',      name: 'Обычная пчела',            icon: 'assets/bee_common.png',      requiredLevel: 1,  cost: 0,    bonusPct: 0 },
-  { tier: 2, key: 'common_plus', name: 'Улучшенная обычная пчела', icon: 'assets/bee_common_plus.png', requiredLevel: 3,  cost: 60,   bonusPct: 5 },
-  { tier: 3, key: 'silver',      name: 'Серебряная пчела',         icon: 'assets/bee_silver.png',      requiredLevel: 6,  cost: 150,  bonusPct: 10 },
-  { tier: 4, key: 'gold',        name: 'Золотая пчела',            icon: 'assets/bee_gold.png',        requiredLevel: 9,  cost: 320,  bonusPct: 16 },
-  { tier: 5, key: 'honey',       name: 'Медовая пчела',            icon: 'assets/bee_honey.png',       requiredLevel: 12, cost: 600,  bonusPct: 23 },
-  { tier: 6, key: 'royal',       name: 'Королевская пчела',        icon: 'assets/bee_royal.png',       requiredLevel: 16, cost: 1100, bonusPct: 31 },
-  { tier: 7, key: 'emperor',     name: 'Императорская пчела',      icon: 'assets/bee_emperor.png',     requiredLevel: 20, cost: 2000, bonusPct: 40 },
-  { tier: 8, key: 'legendary',   name: 'Легендарная пчела',        icon: 'assets/bee_legendary.png',   requiredLevel: 25, cost: 3600, bonusPct: 50 },
+  { tier: 1, key: 'common',      name: 'Обычная пчела',            icon: 'assets/common-bee.jpg',      requiredLevel: 1,  cost: 0,    bonusPct: 0 },
+  { tier: 2, key: 'common_plus', name: 'Улучшенная обычная пчела', icon: 'assets/common-bee+.png',     requiredLevel: 3,  cost: 60,   bonusPct: 5 },
+  { tier: 3, key: 'silver',      name: 'Серебряная пчела',         icon: 'assets/silveer-bee.jpg',     requiredLevel: 6,  cost: 150,  bonusPct: 10 },
+  { tier: 4, key: 'gold',        name: 'Золотая пчела',            icon: 'assets/gold-bee.png',        requiredLevel: 9,  cost: 320,  bonusPct: 16 },
+  { tier: 5, key: 'honey',       name: 'Медовая пчела',            icon: 'assets/honey-bee.jpg',       requiredLevel: 12, cost: 600,  bonusPct: 23 },
+  { tier: 6, key: 'royal',       name: 'Королевская пчела',        icon: 'assets/royal-bee.jpg',       requiredLevel: 16, cost: 1100, bonusPct: 31 },
+  { tier: 7, key: 'emperor',     name: 'Императорская пчела',      icon: 'assets/emperor-bee.png',     requiredLevel: 20, cost: 2000, bonusPct: 40 },
+  { tier: 8, key: 'legendary',   name: 'Легендарная пчела',        icon: 'assets/legendary-bee.jpg',   requiredLevel: 25, cost: 3600, bonusPct: 50 },
 ];
 
 function currentBeeTier(state) { return BEE_TIERS[Math.min(state.beeTier, BEE_TIERS.length) - 1]; }
@@ -2155,14 +2181,14 @@ function onTerritoryTap(index) {
 // The 8-flower collection (names confirmed for the shop). Tiles pick a flower deterministically
 // by position so the territory reads as varied rather than one repeated icon everywhere.
 const FLOWER_DEFS = {
-  daisy: { name: 'Ромашка', icon: 'assets/flower_daisy.png' },
-  dandelion: { name: 'Одуванчик', icon: 'assets/flower_dandelion.png' },
-  clover: { name: 'Клевер', icon: 'assets/flower_clover.png' },
-  bluebell: { name: 'Колокольчик', icon: 'assets/flower_bluebell.png' },
-  wild_rose: { name: 'Дикая роза', icon: 'assets/flower_wildrose.png' },
-  lavender: { name: 'Лаванда', icon: 'assets/flower_lavender.png' },
-  buttercup: { name: 'Лютик', icon: 'assets/flower_buttercup.png' },
-  tulip: { name: 'Тюльпан', icon: 'assets/flower_tulip.png' },
+  daisy: { name: 'Ромашка', icon: 'assets/Daisy.png' },
+  dandelion: { name: 'Одуванчик', icon: 'assets/Dandelion.png' },
+  clover: { name: 'Клевер', icon: 'assets/Clover.png' },
+  bluebell: { name: 'Колокольчик', icon: 'assets/Bellflower.png' },
+  wild_rose: { name: 'Дикая роза', icon: 'assets/Wild_Rose.png' },
+  lavender: { name: 'Лаванда', icon: 'assets/Lavender.png' },
+  buttercup: { name: 'Лютик', icon: 'assets/Buttercup.png' },
+  tulip: { name: 'Тюльпан', icon: 'assets/Tulip.png' },
 };
 const FLOWER_ORDER = ['tulip', 'clover', 'lavender', 'buttercup', 'daisy', 'dandelion', 'bluebell', 'wild_rose'];
 function flowerIconForTile(index) { return FLOWER_DEFS[FLOWER_ORDER[index % FLOWER_ORDER.length]].icon; }
@@ -2181,6 +2207,25 @@ function makeHexTile(kind, size, x, y, clickable) {
   return wrap;
 }
 
+// Generic axial hex-ring generator (redblobgames' standard ring-walk): returns the
+// `radius` distance-N axial coordinates around the origin. Used only for the
+// decorative outer rings below — the real 6-tile territory ring is untouched
+// game data (FARM_RING_ORDER), not generated by this.
+function axialRing(radius) {
+  const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+  const out = [];
+  let q = dirs[4][0] * radius, r = dirs[4][1] * radius;
+  for (let i = 0; i < 6; i++) {
+    for (let j = 0; j < radius; j++) {
+      out.push({ q: q, r: r });
+      q += dirs[i][0]; r += dirs[i][1];
+    }
+  }
+  return out;
+}
+const FARM_DECORATIVE_RING_2 = axialRing(2);
+const FARM_DECORATIVE_RING_3 = axialRing(3);
+
 function renderFarmOverlay() {
   if (!farmLayout || !gameState) return;
   farmOverlayEl.innerHTML = '';
@@ -2190,13 +2235,27 @@ function renderFarmOverlay() {
     return { x: farmLayout.originX + p.x, y: farmLayout.originY + p.y };
   };
 
+  // Decorative fog-of-map hexes beyond the 6 real plots — not clickable, no game
+  // state, just dressing so the honeycomb reads as a bigger map. .farm-stage's own
+  // overflow:hidden naturally crops whatever falls outside the visible screen, so
+  // this never floods the whole background solid.
+  FARM_DECORATIVE_RING_2.forEach((c) => {
+    const p = toScreen(c.q, c.r);
+    farmOverlayEl.appendChild(makeHexTile('locked-deco', size, p.x, p.y, false));
+  });
+  FARM_DECORATIVE_RING_3.forEach((c) => {
+    const p = toScreen(c.q, c.r);
+    const el = makeHexTile('locked-deco', size, p.x, p.y, false);
+    el.classList.add('ring-3');
+    farmOverlayEl.appendChild(el);
+  });
+
   gameState.territory.forEach((tile, i) => {
     const p = toScreen(tile.q, tile.r);
     if (!tile.unlocked) {
       const cost = territoryUnlockCost(gameState);
       const el = makeHexTile('locked', size, p.x, p.y, true);
-      el.innerHTML = '<img class="hex-tile-icon" src="assets/icon_lock.png" alt="">' +
-        '<div class="hex-tile-tag"><img src="assets/icon_honey.png" alt=""><span>' + cost + '</span></div>';
+      el.innerHTML = '<div class="hex-tile-tag"><img src="assets/icon_honey.png" alt=""><span>' + cost + '</span></div>';
       el.addEventListener('click', () => onTerritoryTap(i));
       farmOverlayEl.appendChild(el);
     } else if (tile.starterFlower || tile.decorId) {
@@ -2322,13 +2381,25 @@ function renderCalendarPanelPreview() {
   const now = Date.now();
   const previewDay = previewDailyStreakDay(gameState, now);
   calendarPanelDaysEl.innerHTML = '';
+  // Reward flavor per preview day matches the Скриншот 2 mockup exactly (День1 мёд x10,
+  // День3/5 бриллианты x2, День7 золотой улей) — built from icons that already exist,
+  // since no calendar_day*.png files exist in assets.
+  const REWARDS = {
+    1: { icon: 'assets/icon_honey.png', text: '×10' },
+    3: { icon: 'assets/icon_diamond.png', text: '×2' },
+    5: { icon: 'assets/icon_diamond.png', text: '×2' },
+    7: { icon: 'assets/hive.png', text: 'Улей' },
+  };
   [1, 3, 5, 7].forEach((d) => {
     const card = document.createElement('div');
     let cls = 'calendar-day-card-v2';
     cls += (d <= gameState.daily.streak) ? ' done' : ' locked';
     if (previewDay === d) cls += ' today';
     card.className = cls;
-    card.innerHTML = '<img src="assets/calendar_day' + d + '.png" alt="">';
+    const r = REWARDS[d];
+    card.innerHTML = '<span class="cdc-day">День ' + d + '</span>' +
+      '<img class="cdc-icon" src="' + r.icon + '" alt="">' +
+      '<span class="cdc-amount">' + r.text + '</span>';
     calendarPanelDaysEl.appendChild(card);
   });
 }
