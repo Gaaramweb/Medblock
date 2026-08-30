@@ -33,6 +33,17 @@
     --farm-wood-light: #8a5a2e;
     --farm-petal: #ffc2d1;
     --farm-leaf-2: #5c8f3c;
+
+    /* --- flat honeycomb hex-tile accents (apiary territory map) --- */
+    --hex-grass: #8bc34a;
+    --hex-grass-deep: #6ea338;
+    --hex-locked: #a9c48a;
+    --hex-locked-deep: #8aa86c;
+    --hex-empty: #ffcf5c;
+    --hex-empty-deep: #f0a91e;
+    --hex-hive: #ffdd8a;
+    --hex-hive-deep: #e8a020;
+    --hex-stroke: rgba(53,32,15,0.28);
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -175,13 +186,16 @@
   }
 
   /* ---------- Apiary hub ---------- */
-  /* Cozy farm backdrop — scoped only to farm screens, never to #screen-puzzle */
-  #screen-apiary, #screen-bees, #screen-quests, #screen-shop {
-    background:
-      radial-gradient(ellipse at 15% 0%, rgba(255, 209, 102, 0.10), transparent 55%),
+  /* Flat honeycomb backdrop — scoped only to farm screens, never to #screen-puzzle.
+     A tiny tiled SVG hex-outline stands in for the old diagonal hatch, so the
+     "соты" motif shows up behind every hub screen, not just the territory map. */
+  #screen-apiary, #screen-bees, #screen-quests, #screen-shop, #screen-profile {
+    background-color: var(--bg-deep);
+    background-image:
+      radial-gradient(ellipse at 15% 0%, rgba(255, 209, 102, 0.12), transparent 55%),
       radial-gradient(ellipse at 90% 15%, rgba(111, 184, 214, 0.08), transparent 50%),
-      repeating-linear-gradient(120deg, transparent 0 38px, rgba(255,255,255,0.02) 38px 40px),
-      repeating-linear-gradient(60deg, transparent 0 38px, rgba(255,255,255,0.02) 38px 40px);
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97' viewBox='0 0 56 97'%3E%3Cg fill='none' stroke='%23ffb627' stroke-opacity='0.05' stroke-width='1.5'%3E%3Cpath d='M28 0 56 16 56 48 28 64 0 48 0 16Z'/%3E%3Cpath d='M28 64 56 80 56 97 28 97 0 97 0 80Z'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: auto, auto, 56px 97px;
   }
 
 
@@ -252,7 +266,7 @@
   .level-plaque-wrap { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; width: 92px; background: none; border: none; padding: 0; font-family: inherit; cursor: pointer; }
   .level-plaque {
     background: linear-gradient(160deg, #fff3d9, var(--cream));
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 8px 6px 9px;
     text-align: center;
     box-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 5px 10px rgba(0,0,0,0.22);
@@ -271,30 +285,41 @@
   }
   .rating-chip-label { font-size: 0.52rem; font-weight: 800; color: var(--cream); opacity: 0.75; text-transform: uppercase; }
   .rating-chip-value { font-size: 0.66rem; font-weight: 900; color: var(--honey-light); }
-  .level-plaque-fill { height: 100%; background: linear-gradient(90deg, var(--honey), var(--honey-deep)); border-radius: 999px; transition: width 0.3s ease; }
+  .level-plaque-fill {
+    height: 100%; border-radius: 999px; transition: width 0.3s ease;
+    background: linear-gradient(90deg, var(--honey), var(--honey-deep));
+    background-image: linear-gradient(90deg, var(--honey), var(--honey-deep)),
+      linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.45) 44%, transparent 58%);
+    background-size: 100% 100%, 60px 100%;
+    background-repeat: no-repeat, repeat-x;
+    animation: barShine 2.6s linear infinite;
+  }
+  @keyframes barShine { 0% { background-position: 0 0, 0 0; } 100% { background-position: 0 0, 120px 0; } }
+  @media (prefers-reduced-motion: reduce) { .level-plaque-fill { animation: none; } }
 
-  /* -- Resource chips (top-center) -- */
-  .resource-chips-v2 { display: flex; gap: 6px; flex: 1 1 auto; justify-content: center; flex-wrap: wrap; min-width: 0; align-self: flex-start; }
+  /* -- Resource chips (top-center) -- each chip now carries its own "+" (Скриншот 1) -- */
+  .resource-chips-v2 { display: flex; gap: 5px; flex: 1 1 auto; justify-content: center; flex-wrap: wrap; min-width: 0; align-self: flex-start; }
   .chip-v2 {
     background: linear-gradient(160deg, #fff3d9, var(--cream));
     border-radius: 999px;
-    padding: 5px 12px 6px;
+    padding: 4px 9px 5px;
     display: flex; flex-direction: column; align-items: center; gap: 0px;
     box-shadow: 0 3px 0 rgba(0,0,0,0.16), 0 5px 10px rgba(0,0,0,0.2);
     min-width: 0;
   }
-  .chip-v2-top { display: flex; align-items: center; gap: 5px; }
-  .chip-v2-icon { width: 24px; height: 24px; object-fit: contain; flex: 0 0 auto; }
-  .chip-v2-value { font-weight: 900; font-size: 0.9rem; color: var(--wood-dark); white-space: nowrap; }
-  .chip-v2-label { font-size: 0.56rem; font-weight: 800; color: var(--wood); opacity: 0.7; text-transform: uppercase; letter-spacing: 0.03em; }
+  .chip-v2-top { display: flex; align-items: center; gap: 4px; }
+  .chip-v2-icon { width: 20px; height: 20px; object-fit: contain; flex: 0 0 auto; }
+  .chip-v2-value { font-weight: 900; font-size: 0.8rem; color: var(--wood-dark); white-space: nowrap; }
+  .chip-v2-label { font-size: 0.54rem; font-weight: 800; color: var(--wood); opacity: 0.7; text-transform: uppercase; letter-spacing: 0.02em; }
   .chip-v2-plus {
-    width: 19px; height: 19px; border-radius: 50%; border: none;
+    width: 17px; height: 17px; border-radius: 50%; border: none;
     background: linear-gradient(160deg, var(--good), var(--farm-leaf-2));
-    color: var(--cream); font-weight: 900; font-size: 0.85rem;
+    color: var(--cream); font-weight: 900; font-size: 0.78rem;
     line-height: 1; cursor: pointer; margin-left: 1px; padding: 0;
     box-shadow: 0 2px 0 #3d6a26;
+    transition: transform 0.1s cubic-bezier(.34,1.56,.64,1);
   }
-  .chip-v2-plus:active { transform: translateY(1px); box-shadow: none; }
+  .chip-v2-plus:active { transform: translateY(1px) scale(0.9); box-shadow: none; }
 
   /* -- Top-right action button (daily challenge quick-view — the only top action,
      since a second one would just duplicate the bottom-nav "Задания" destination) -- */
@@ -302,7 +327,7 @@
   .action-btn-v2 {
     position: relative;
     background: linear-gradient(160deg, #fff3d9, var(--cream));
-    border: none; border-radius: 14px;
+    border: none; border-radius: 16px;
     padding: 7px 8px 6px;
     display: flex; flex-direction: column; align-items: center; gap: 3px;
     box-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 5px 10px rgba(0,0,0,0.22);
@@ -314,17 +339,53 @@
   .action-btn-v2-icon { width: 34px; height: 34px; object-fit: contain; }
   .action-btn-v2-label { font-size: 0.54rem; font-weight: 800; color: var(--wood); line-height: 1.25; text-transform: uppercase; letter-spacing: 0.01em; }
 
-  /* ============ Territory stage — one background scene + plain icon overlays ============
-     No hex-shaped tile art anymore: the AI image tool only exports clean squares, so hexagon
-     cropping never lined up between separate generations. Fix: the whole scene is ONE
-     background picture (trees/grass/flowers baked in, rotated to a phone-portrait crop), and
-     every hive/ring position is just a small square icon sitting on top of it. */
+  /* ============ Territory stage — flat CSS hexagons, no photo/isometric art ============
+     Every hive/ring tile is a real hexagon (clip-path), drawn in code — so unlike baked
+     image art it always lines up exactly with the axial math below, at any size. */
   .farm-stage {
     position: relative; flex: 1; min-height: 0; margin: 2px 8px; border-radius: 18px; overflow: hidden;
-    background-image: url('assets/bg_scene.jpg');
-    background-size: cover; background-position: center;
-    background-color: #6fa83f; /* shows while bg_scene.jpg is still a placeholder */
+    background:
+      radial-gradient(circle at 50% 38%, rgba(255,255,255,0.10), transparent 60%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97' viewBox='0 0 56 97'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.07' stroke-width='2'%3E%3Cpath d='M28 0 56 16 56 48 28 64 0 48 0 16Z'/%3E%3Cpath d='M28 64 56 80 56 97 28 97 0 97 0 80Z'/%3E%3C/g%3E%3C/svg%3E"),
+      linear-gradient(160deg, var(--hex-grass), var(--hex-grass-deep));
+    background-size: auto, 56px 97px, auto;
   }
+
+  /* -- Flat hex tile (pointy-top, matches farmAxialToPixel's axial layout) -- */
+  .hex-tile {
+    position: absolute; transform: translate(-50%, -50%);
+    display: flex; align-items: center; justify-content: center;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    box-shadow: inset 0 -6px 0 rgba(0,0,0,0.14), inset 0 2px 0 rgba(255,255,255,0.25);
+    transition: transform 0.12s cubic-bezier(.34,1.56,.64,1);
+  }
+  .hex-tile--clickable { cursor: pointer; pointer-events: auto; }
+  .hex-tile--clickable:active { transform: translate(-50%, -50%) scale(0.93); }
+  .hex-tile--locked { background: linear-gradient(160deg, var(--hex-locked), var(--hex-locked-deep)); opacity: 0.88; }
+  .hex-tile--empty { background: linear-gradient(160deg, var(--hex-empty), var(--hex-empty-deep)); }
+  .hex-tile--planted { background: linear-gradient(160deg, #a9d97a, var(--hex-grass-deep)); }
+  .hex-tile--hive { background: linear-gradient(160deg, var(--hex-hive), var(--hex-hive-deep)); z-index: 2; cursor: pointer; pointer-events: auto; }
+  .hex-tile--hive:active { transform: translate(-50%, -50%) scale(0.95); }
+  .hex-tile-icon { width: 46%; height: 46%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.25)); }
+  .hex-tile--hive .hex-tile-icon { width: 58%; height: 58%; }
+  .hex-tile-tag {
+    position: absolute; bottom: -11px; left: 50%; transform: translate(-50%, 0);
+    display: flex; align-items: center; gap: 3px;
+    font-size: 0.56rem; font-weight: 900; color: var(--cream);
+    background: var(--wood-dark); padding: 2px 6px 3px; border-radius: 999px; white-space: nowrap;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2); pointer-events: none;
+  }
+  .hex-tile-tag img { width: 11px; height: 11px; object-fit: contain; }
+
+  /* Hive illustration — an unclipped accent layered on top of .hex-tile--hive so it
+     can read as the "hero" of the map without being boxed in by the hex clip-path. */
+  .farm-hive-img {
+    position: absolute; transform: translate(-50%, -58%);
+    pointer-events: auto; cursor: pointer; object-fit: contain; z-index: 3;
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+    transition: transform 0.12s cubic-bezier(.34,1.56,.64,1);
+  }
+  .farm-hive-img:active { transform: translate(-50%, -58%) scale(0.94); }
   .farm-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
   .farm-bees { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
   .farm-bee { position: absolute; width: 30px; height: 30px; will-change: left, top, transform; }
@@ -340,39 +401,11 @@
   .farm-bee--c { animation-name: beePathC, beeFlutter; }
   .farm-bee { animation-timing-function: ease-in-out, ease-in-out; animation-iteration-count: infinite, infinite; }
 
-  .farm-tile {
-    position: absolute; transform: translate(-50%, -50%);
-    pointer-events: none;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .farm-tile.farm-tile--clickable { pointer-events: auto; cursor: pointer; }
-  .farm-tile img { pointer-events: none; object-fit: contain; display: block; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.3)); }
-  .farm-tile-cost {
-    position: absolute; bottom: -13px; left: 50%; transform: translate(-50%, 0);
-    display: flex; align-items: center; gap: 3px;
-    font-size: 0.6rem; font-weight: 800; color: var(--honey-light);
-    background: rgba(0,0,0,0.55); padding: 2px 7px; border-radius: 999px; white-space: nowrap;
-  }
-  .farm-tile-cost img { width: 12px; height: 12px; object-fit: contain; filter: none; }
-  .farm-tile-tag {
-    position: absolute; bottom: -13px; left: 50%; transform: translate(-50%, 0);
-    font-size: 0.58rem; font-weight: 900; color: var(--cream); text-align: center; line-height: 1.1;
-    background: var(--wood-dark); padding: 2px 7px 3px; border-radius: 8px; white-space: nowrap;
-    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
-  }
-
-  /* Hive is the one bigger illustration, sitting directly on the background scene. */
-  .farm-hive-img {
-    position: absolute; transform: translate(-50%, -58%);
-    pointer-events: auto; cursor: pointer; object-fit: contain; z-index: 2;
-    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
-  }
-
   .farm-hive-popover {
     position: absolute; transform: translate(-50%, calc(-100% - 10px));
     background: linear-gradient(160deg, #fff3d9, var(--cream));
     color: var(--ink);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 10px 12px;
     text-align: center;
     box-shadow: 0 10px 26px rgba(0,0,0,0.4);
@@ -389,7 +422,7 @@
     width: 210px;
     background: linear-gradient(160deg, #fff3d9, var(--cream));
     color: var(--ink);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 12px 14px;
     text-align: left;
     box-shadow: 0 10px 26px rgba(0,0,0,0.4);
@@ -466,7 +499,7 @@
   .calendar-panel-v2 {
     position: absolute; left: 8px; bottom: 8px; z-index: 2;
     background: linear-gradient(160deg, #fff3d9, var(--cream));
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 9px 9px 8px;
     box-shadow: 0 4px 0 rgba(0,0,0,0.18), 0 6px 14px rgba(0,0,0,0.28);
     cursor: pointer;
@@ -520,8 +553,21 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     max-width: 100%;
   }
-  .nav-btn-v2--play { background: linear-gradient(160deg, var(--good), var(--farm-leaf-2)); }
-  .nav-btn-v2--play .nav-btn-v2-label { color: var(--cream); text-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+  /* "Играть" is the main action, so it gets more flex, a bigger icon and a soft
+     idle glow — everything else on the bar reads as secondary next to it. */
+  .nav-btn-v2--play {
+    flex: 1.6;
+    padding-top: 10px; padding-bottom: 9px;
+    background: linear-gradient(160deg, var(--good), var(--farm-leaf-2));
+    animation: playGlow 2.4s ease-in-out infinite;
+  }
+  .nav-btn-v2--play .nav-btn-v2-icon { width: 30px; height: 30px; }
+  .nav-btn-v2--play .nav-btn-v2-label { font-size: 0.72rem; color: var(--cream); text-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+  @keyframes playGlow {
+    0%, 100% { box-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 5px 10px rgba(0,0,0,0.24); }
+    50% { box-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 5px 10px rgba(0,0,0,0.24), 0 0 0 5px rgba(134,193,100,0.28); }
+  }
+  @media (prefers-reduced-motion: reduce) { .nav-btn-v2--play { animation: none; } }
   .nav-badge-v2 {
     position: absolute; top: -6px; right: -6px;
     min-width: 19px; height: 19px; border-radius: 999px;
@@ -530,8 +576,11 @@
     display: flex; align-items: center; justify-content: center;
     padding: 0 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 0 2px var(--bg-deep);
+    animation: badgePop 0.4s cubic-bezier(.34,1.56,.64,1);
   }
   .nav-badge-v2.hidden { display: none; }
+  @keyframes badgePop { 0% { transform: scale(0); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  @media (prefers-reduced-motion: reduce) { .nav-badge-v2 { animation: none; } }
 
   /* ---------- Sub screens (bees / quests / shop) ---------- */
   .sub-topbar {
@@ -596,7 +645,15 @@
   .quest-card { flex-direction: column; align-items: stretch; gap: 8px; }
   .quest-label { font-weight: 800; font-size: 0.92rem; }
   .quest-progress-track { height: 10px; border-radius: 999px; background: rgba(0,0,0,0.28); overflow: hidden; }
-  .quest-progress-fill { height: 100%; background: linear-gradient(90deg, var(--honey-light), var(--honey-deep)); border-radius: 999px; transition: width 0.3s ease; }
+  .quest-progress-fill {
+    height: 100%; border-radius: 999px; transition: width 0.3s ease;
+    background-image: linear-gradient(90deg, var(--honey-light), var(--honey-deep)),
+      linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.45) 44%, transparent 58%);
+    background-size: 100% 100%, 60px 100%;
+    background-repeat: no-repeat, repeat-x;
+    animation: barShine 2.6s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .quest-progress-fill { animation: none; } }
   .quest-progress-text { font-size: 0.78rem; opacity: 0.75; font-weight: 700; }
 
   .small-action-btn {
@@ -685,7 +742,7 @@
   .result {
     flex: 1 1 40%;
     background: rgba(226, 135, 15, 0.1);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 10px 4px;
     display: flex; flex-direction: column; gap: 2px;
   }
@@ -756,6 +813,7 @@
           <div class="chip-v2-top">
             <img class="chip-v2-icon" src="assets/icon_honey.png" alt="">
             <span class="chip-v2-value"><span id="res-honey">0</span> / <span id="res-honey-goal">40</span></span>
+            <button class="chip-v2-plus" id="res-honey-plus-btn" aria-label="Пополнить мёд">+</button>
           </div>
           <span class="chip-v2-label">Мёд</span>
         </div>
@@ -763,7 +821,7 @@
           <div class="chip-v2-top">
             <img class="chip-v2-icon" src="assets/icon_diamond.png" alt="">
             <span class="chip-v2-value" id="res-diamonds">0</span>
-            <button class="chip-v2-plus" id="res-plus-btn" aria-label="Пополнить">+</button>
+            <button class="chip-v2-plus" id="res-plus-btn" aria-label="Пополнить бриллианты">+</button>
           </div>
           <span class="chip-v2-label">Бриллианты</span>
         </div>
@@ -771,6 +829,7 @@
           <div class="chip-v2-top">
             <img class="chip-v2-icon" src="assets/icon_expansion.png" alt="">
             <span class="chip-v2-value" id="res-territory">2/6</span>
+            <button class="chip-v2-plus" id="res-territory-plus-btn" aria-label="Расширить территорию">+</button>
           </div>
           <span class="chip-v2-label">Расширение</span>
         </div>
@@ -1457,7 +1516,7 @@ let canvas, gameArea, floatLayer, comboBanner, honeyCountEl, scoreCountEl,
     idleOverlay, idleModalEmojiEl, idleModalTitleEl, idleModalTextEl, idleClaimBtn,
     calendarOverlay, calendarSubEl, calendarGridEl, calendarCloseBtn,
     gameoverOverlay, apiaryBtn, resultHoney, resultScore, resultCombo, resultLines, recordNote,
-    levelNumEl, levelXpFillEl, levelPlaqueWrapEl, ratingValueEl, resHoneyEl, resHoneyGoalEl, resDiamondsEl, resPlusBtn, resTerritoryEl,
+    levelNumEl, levelXpFillEl, levelPlaqueWrapEl, ratingValueEl, resHoneyEl, resHoneyGoalEl, resHoneyPlusBtn, resDiamondsEl, resPlusBtn, resTerritoryEl, resTerritoryPlusBtn,
     dailyChallengeBtnEl, dailyChallengeDotEl,
     calendarPanelV2El, calendarPanelDaysEl, navBadgeQuestsEl, navBadgeShopEl,
     farmStageEl, farmOverlayEl, farmBeesEl,
@@ -2045,9 +2104,10 @@ function enterApiary() {
   }
 }
 
-/* ============ Territory scene — flat hex math for positioning only ============
-   No hex-tile artwork anymore (see CSS comment above) — this just places small square
-   icons at hive/ring-1 coordinates over the single background scene. */
+/* ============ Territory scene — real flat hexagons, positioned by axial math ============
+   Each ring tile (and the hive cell) is a CSS clip-path hexagon sized from the same
+   "size" value used to space them, so they always tile edge-to-edge with no art to
+   line up by hand. */
 
 function farmAxialToPixel(q, r, size) {
   const x = size * Math.sqrt(3) * (q + r / 2);
@@ -2066,7 +2126,9 @@ function computeFarmLayout() {
   const allPts = [{ q: 0, r: 0 }].concat(FARM_RING_ORDER).map((p) => farmAxialToPixel(p.q, p.r, 1));
   const maxX = Math.max(0.001, ...allPts.map((p) => Math.abs(p.x)));
   const maxY = Math.max(0.001, ...allPts.map((p) => Math.abs(p.y)));
-  const size = Math.max(20, Math.min((cssWidth * 0.6) / maxX, (cssHeight * 0.48) / maxY, 48));
+  // "size" doubles as the hex circumradius, so ring tiles spaced with farmAxialToPixel
+  // touch edge-to-edge exactly when each hex is drawn at width = size*sqrt(3), height = size*2.
+  const size = Math.max(22, Math.min((cssWidth * 0.62) / maxX, (cssHeight * 0.5) / maxY, 52));
   farmLayout = { originX: cssWidth / 2, originY: cssHeight * 0.46, size: size };
 }
 
@@ -2105,17 +2167,17 @@ const FLOWER_DEFS = {
 const FLOWER_ORDER = ['tulip', 'clover', 'lavender', 'buttercup', 'daisy', 'dandelion', 'bluebell', 'wild_rose'];
 function flowerIconForTile(index) { return FLOWER_DEFS[FLOWER_ORDER[index % FLOWER_ORDER.length]].icon; }
 
-function makeFarmTile(src, size, x, y, clickable) {
+// Builds one flat hexagon cell (pointy-top clip-path) sized/positioned from the
+// same axial "size" used to space the whole ring, so cells always tile edge-to-edge.
+function makeHexTile(kind, size, x, y, clickable) {
   const wrap = document.createElement('div');
-  wrap.className = 'farm-tile' + (clickable ? ' farm-tile--clickable' : '');
+  wrap.className = 'hex-tile hex-tile--' + kind + (clickable ? ' hex-tile--clickable' : '');
+  const w = Math.round(size * Math.sqrt(3));
+  const h = size * 2;
+  wrap.style.width = w + 'px';
+  wrap.style.height = h + 'px';
   wrap.style.left = x + 'px';
   wrap.style.top = y + 'px';
-  const img = document.createElement('img');
-  img.src = src;
-  img.alt = '';
-  img.style.width = Math.round(size * 1.15) + 'px';
-  img.style.height = Math.round(size * 1.15) + 'px';
-  wrap.appendChild(img);
   return wrap;
 }
 
@@ -2132,33 +2194,37 @@ function renderFarmOverlay() {
     const p = toScreen(tile.q, tile.r);
     if (!tile.unlocked) {
       const cost = territoryUnlockCost(gameState);
-      const el = makeFarmTile('assets/icon_lock.png', size, p.x, p.y, true);
-      const costEl = document.createElement('div');
-      costEl.className = 'farm-tile-cost';
-      costEl.innerHTML = '<img src="assets/icon_honey.png" alt=""><span>' + cost + '</span>';
-      el.appendChild(costEl);
+      const el = makeHexTile('locked', size, p.x, p.y, true);
+      el.innerHTML = '<img class="hex-tile-icon" src="assets/icon_lock.png" alt="">' +
+        '<div class="hex-tile-tag"><img src="assets/icon_honey.png" alt=""><span>' + cost + '</span></div>';
       el.addEventListener('click', () => onTerritoryTap(i));
       farmOverlayEl.appendChild(el);
     } else if (tile.starterFlower || tile.decorId) {
-      farmOverlayEl.appendChild(makeFarmTile(flowerIconForTile(i), size, p.x, p.y, false));
+      const el = makeHexTile('planted', size, p.x, p.y, false);
+      el.innerHTML = '<img class="hex-tile-icon" src="' + flowerIconForTile(i) + '" alt="">';
+      farmOverlayEl.appendChild(el);
     } else {
       // Unlocked and nothing planted yet — shown as a productive honey tile
       // (purely visual flavor; the "60m" tag is not a real timer).
-      const el = makeFarmTile('assets/icon_honey.png', size, p.x, p.y, false);
-      const tag = document.createElement('div');
-      tag.className = 'farm-tile-tag';
-      tag.textContent = '60М МЁД';
-      el.appendChild(tag);
+      const el = makeHexTile('empty', size, p.x, p.y, false);
+      el.innerHTML = '<img class="hex-tile-icon" src="assets/icon_honey.png" alt="">' +
+        '<div class="hex-tile-tag"><span>60М МЁД</span></div>';
       farmOverlayEl.appendChild(el);
     }
   });
 
   const hp = toScreen(0, 0);
+  const hiveBase = makeHexTile('hive', size, hp.x, hp.y, true);
+  hiveBase.addEventListener('click', onHiveTap);
+  farmOverlayEl.appendChild(hiveBase);
+
+  // The hive illustration itself is a separate, unclipped layer so it can pop
+  // slightly bigger than its hex cell — a small "hero" accent, not a grid tile.
   const hiveImg = document.createElement('img');
   hiveImg.className = 'farm-hive-img';
   hiveImg.src = 'assets/hive.png';
   hiveImg.alt = '';
-  const hiveSize = Math.round(size * 1.9);
+  const hiveSize = Math.round(size * 1.7);
   hiveImg.style.left = hp.x + 'px';
   hiveImg.style.top = hp.y + 'px';
   hiveImg.style.width = hiveSize + 'px';
@@ -2540,9 +2606,19 @@ function wireEconomyActions() {
   dailyChallengeBtnEl.addEventListener('click', onDailyChallengeTap);
   calendarCloseBtn.addEventListener('click', function () { calendarOverlay.classList.add('hidden'); });
 
+  resHoneyPlusBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    showFarmToast('Пополнение мёда скоро появится');
+  });
+
   resPlusBtn.addEventListener('click', function (e) {
     e.stopPropagation();
     showFarmToast('Пополнение бриллиантов скоро появится');
+  });
+
+  resTerritoryPlusBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    showFarmToast('Собирай мёд, чтобы открыть новые соты');
   });
 
   rerollBtn.addEventListener('click', function () {
@@ -2626,7 +2702,9 @@ function cacheDom() {
   resHoneyEl = document.getElementById('res-honey');
   resHoneyGoalEl = document.getElementById('res-honey-goal');
   resDiamondsEl = document.getElementById('res-diamonds');
+  resHoneyPlusBtn = document.getElementById('res-honey-plus-btn');
   resPlusBtn = document.getElementById('res-plus-btn');
+  resTerritoryPlusBtn = document.getElementById('res-territory-plus-btn');
   resTerritoryEl = document.getElementById('res-territory');
   dailyChallengeBtnEl = document.getElementById('daily-challenge-btn');
   dailyChallengeDotEl = document.getElementById('daily-challenge-dot');
