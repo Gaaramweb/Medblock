@@ -52,7 +52,7 @@
     margin: 0; padding: 0;
     height: 100%;
     overscroll-behavior: none;
-    background: var(--bg-deep);
+    background: var(--bg-deep); /* plain fallback colour only — the real background lives on #bg-layer below */
   }
 
   body {
@@ -63,16 +63,24 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background:
-      radial-gradient(ellipse at 50% 20%, rgba(255, 197, 110, 0.16), transparent 60%),
-      radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.35), transparent 55%),
-      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.025) 39px, rgba(255,255,255,0.025) 40px),
-      repeating-linear-gradient(60deg, transparent, transparent 39px, rgba(255,255,255,0.025) 39px, rgba(255,255,255,0.025) 40px),
-      repeating-linear-gradient(120deg, transparent, transparent 39px, rgba(255,255,255,0.025) 39px, rgba(255,255,255,0.025) 40px),
-      linear-gradient(160deg, var(--bg-mid), var(--bg-deep) 70%);
   }
 
-  #app { position: relative; height: 100%; width: 100%; }
+  /* Single source of truth for the whole interface's background. A dedicated,
+     viewport-fixed layer (not body's own `background`) sidesteps the classic mobile
+     "background-attachment: fixed" bugs — sizing is driven by inset:0 on the real
+     viewport, not by body/html's box, so it can't come out cropped or partial after
+     a reload. Every screen (#app and its children) must stay transparent so this
+     one image is what actually shows through everywhere: hub, gameplay, shop, etc. */
+  #bg-layer {
+    position: fixed; inset: 0; z-index: 0;
+    background-image: url('assets/background.png');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+  }
+
+  #app { position: relative; z-index: 1; height: 100%; width: 100%; background: transparent; }
 
   .screen {
     display: none;
@@ -186,17 +194,8 @@
   }
 
   /* ---------- Apiary hub ---------- */
-  /* Flat honeycomb backdrop — scoped only to farm screens, never to #screen-puzzle.
-     A tiny tiled SVG hex-outline stands in for the old diagonal hatch, so the
-     "соты" motif shows up behind every hub screen, not just the territory map. */
-  #screen-apiary, #screen-bees, #screen-quests, #screen-shop, #screen-profile {
-    background-color: var(--bg-deep);
-    background-image:
-      radial-gradient(ellipse at 15% 0%, rgba(255, 209, 102, 0.12), transparent 55%),
-      radial-gradient(ellipse at 90% 15%, rgba(111, 184, 214, 0.08), transparent 50%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97' viewBox='0 0 56 97'%3E%3Cg fill='none' stroke='%23ffb627' stroke-opacity='0.05' stroke-width='1.5'%3E%3Cpath d='M28 0 56 16 56 48 28 64 0 48 0 16Z'/%3E%3Cpath d='M28 64 56 80 56 97 28 97 0 97 0 80Z'/%3E%3C/g%3E%3C/svg%3E");
-    background-size: auto, auto, 56px 97px;
-  }
+  /* No background of its own — #bg-layer (fixed, behind #app) is the single
+     background for the whole interface, apiary included. */
 
 
   .currency-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
@@ -341,14 +340,11 @@
 
   /* ============ Territory stage — flat CSS hexagons, no photo/isometric art ============
      Every hive/ring tile is a real hexagon (clip-path), drawn in code — so unlike baked
-     image art it always lines up exactly with the axial math below, at any size. */
+     image art it always lines up exactly with the axial math below, at any size.
+     No background of its own — the shared #bg-layer PNG shows straight through here too;
+     overflow:hidden is kept only to crop the decorative outer hex rings at the edges. */
   .farm-stage {
     position: relative; flex: 1; min-height: 0; margin: 2px 8px; border-radius: 18px; overflow: hidden;
-    background:
-      radial-gradient(circle at 50% 38%, rgba(255,255,255,0.10), transparent 60%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97' viewBox='0 0 56 97'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.16' stroke-width='2'%3E%3Cpath d='M28 0 56 16 56 48 28 64 0 48 0 16Z'/%3E%3Cpath d='M28 64 56 80 56 97 28 97 0 97 0 80Z'/%3E%3C/g%3E%3C/svg%3E"),
-      linear-gradient(160deg, var(--hex-grass), var(--hex-grass-deep));
-    background-size: auto, 56px 97px, auto;
   }
 
   /* -- Flat hex tile (pointy-top, matches farmAxialToPixel's axial layout) -- */
@@ -643,6 +639,43 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Магазин: the shared #bg-layer PNG stays visible behind it (same as every other
+     screen) — the only difference here is a soft blur + a light tint "panel" veil,
+     never a separate background image of its own. */
+  #screen-shop {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: rgba(20,14,6,0.28);
+  }
+
+  /* -- Shop grid: category tiles, not a table. 1 column on phones (unchanged from
+     the old vertical list), 2 on tablets, 3 on desktop. -- */
+  #shop-content {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+  #shop-content .section-label { grid-column: 1 / -1; margin-top: 10px; }
+  #shop-content .section-label:first-child { margin-top: 0; }
+  @media (min-width: 480px) {
+    #shop-content { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 720px) {
+    #shop-content { grid-template-columns: repeat(3, 1fr); gap: 14px 12px; }
+  }
+  .shop-tile {
+    display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
+    background: linear-gradient(160deg, rgba(255,246,224,0.11), rgba(255,246,224,0.05));
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 16px;
+    padding: 14px 10px 12px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.14), 0 6px 14px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
+    transition: transform 0.12s ease;
+  }
+  .shop-tile:active { transform: translateY(1px); }
+  .shop-tile .bee-desc { margin-top: 0; }
+
   .bee-icon {
     font-size: 1.55rem; flex: 0 0 auto;
     width: 46px; height: 46px;
@@ -654,6 +687,7 @@
     border: 2px solid rgba(255,255,255,0.18);
   }
   .bee-icon.dim { opacity: 0.4; filter: grayscale(0.85); box-shadow: inset 0 -4px 0 rgba(0,0,0,0.18); }
+  .bee-icon img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
   .bee-icon--queen { border-color: var(--farm-gold-statue); box-shadow: inset 0 -4px 0 rgba(0,0,0,0.12), 0 0 0 3px rgba(255,228,154,0.18), 0 2px 6px rgba(0,0,0,0.22); }
   .bee-icon--scout { border-color: var(--good); }
   .bee-icon--statue {
@@ -805,6 +839,8 @@
 </head>
 <body>
 
+<div id="bg-layer" aria-hidden="true"></div>
+
 <div id="app">
 
   <div id="screen-puzzle" class="screen">
@@ -895,10 +931,6 @@
         <img class="nav-btn-v2-icon" src="assets/btn_play.png" alt="">
         <span class="nav-btn-v2-label">Играть</span>
       </button>
-      <button class="nav-btn-v2" data-nav="bees">
-        <img class="nav-btn-v2-icon" src="assets/btn_bees.png" alt="">
-        <span class="nav-btn-v2-label">Пчёлы</span>
-      </button>
       <button class="nav-btn-v2" data-nav="quests">
         <img class="nav-btn-v2-icon" src="assets/btn_quests.png" alt="">
         <span class="nav-btn-v2-label">Задания</span>
@@ -910,15 +942,6 @@
         <span class="nav-badge-v2 hidden" id="nav-badge-shop">0</span>
       </button>
     </nav>
-  </div>
-
-  <div id="screen-bees" class="screen">
-    <header class="sub-topbar">
-      <button class="back-btn" data-nav="apiary" aria-label="К пасеке">←</button>
-      <h2>Пчёлы</h2>
-      <div class="currency-chip">🌸<span id="bees-pollen">0</span></div>
-    </header>
-    <div class="sub-scroll" id="bees-content"></div>
   </div>
 
   <div id="screen-quests" class="screen">
@@ -935,6 +958,7 @@
       <h2>Магазин</h2>
       <div class="currency-chip">🍯<span id="shop-honey">0</span></div>
       <div class="currency-chip">💎<span id="shop-diamonds">0</span></div>
+      <div class="currency-chip">🌸<span id="shop-pollen">0</span></div>
     </header>
     <div class="sub-scroll" id="shop-content"></div>
   </div>
@@ -1148,9 +1172,9 @@ const HIVE_DEF = { name: 'Улей', baseUpgradeCost: 40 };
 const HIVE_UPGRADE_COST_MULT = 1.45;
 
 const BEE_DEFS = {
-  bee_worker: { name: 'Пчёлка-Труженица', icon: '🐝', cost: 0,  costCurrency: null,      effect: 'start_bee_no_bonus',       description: 'Обычная пчела с пасеки. Пока просто радует глаз — бонусов не даёт.' },
-  bee_scout:  { name: 'Пчела-Разведчица', icon: '🐝', cost: 30, costCurrency: 'pollen',  effect: 'extra_reroll_per_round',   description: 'Даёт одну бесплатную замену фигур за раунд в пазле.' },
-  bee_queen:  { name: 'Пчелиная Матка',   icon: '👑', cost: 80, costCurrency: 'pollen',  effect: 'plus10pct_honey_per_line', description: '+10% мёда за каждую собранную линию в пазле.' },
+  bee_worker: { name: 'Пчёлка-Труженица', icon: '<img src="assets/work-bee.png" alt="">', cost: 0,  costCurrency: null,      effect: 'start_bee_no_bonus',       description: 'Обычная пчела с пасеки. Пока просто радует глаз — бонусов не даёт.' },
+  bee_scout:  { name: 'Пчела-Разведчица', icon: '<img src="assets/delivery-bee.jpg" alt="">', cost: 30, costCurrency: 'pollen',  effect: 'extra_reroll_per_round',   description: 'Даёт одну бесплатную замену фигур за раунд в пазле.' },
+  bee_queen:  { name: 'Пчелиная Матка',   icon: '<img src="assets/builder-bee.jpg" alt="">', cost: 80, costCurrency: 'pollen',  effect: 'plus10pct_honey_per_line', description: '+10% мёда за каждую собранную линию в пазле.' },
 };
 
 const DECOR_DEFS = {
@@ -1167,7 +1191,7 @@ const DECOR_DEFS = {
 // cost to buy in the shop, and grants a permanent +X% honey-per-line bonus once owned —
 // it replaces the previous tier (one bee that ranks up), not a separate pet per tier.
 const BEE_TIERS = [
-  { tier: 1, key: 'common',      name: 'Обычная пчела',            icon: 'assets/common-bee.jpg',      requiredLevel: 1,  cost: 0,    bonusPct: 0 },
+  { tier: 1, key: 'common',      name: 'Обычная пчела',            icon: 'assets/common-bee.png',      requiredLevel: 1,  cost: 0,    bonusPct: 0 },
   { tier: 2, key: 'common_plus', name: 'Улучшенная обычная пчела', icon: 'assets/common-bee+.png',     requiredLevel: 3,  cost: 60,   bonusPct: 5 },
   { tier: 3, key: 'silver',      name: 'Серебряная пчела',         icon: 'assets/silveer-bee.jpg',     requiredLevel: 6,  cost: 150,  bonusPct: 10 },
   { tier: 4, key: 'gold',        name: 'Золотая пчела',            icon: 'assets/gold-bee.png',        requiredLevel: 9,  cost: 320,  bonusPct: 16 },
@@ -1556,7 +1580,7 @@ let canvas, gameArea, floatLayer, comboBanner, honeyCountEl, scoreCountEl,
     dailyChallengeBtnEl, dailyChallengeDotEl,
     calendarPanelV2El, calendarPanelDaysEl, navBadgeQuestsEl, navBadgeShopEl,
     farmStageEl, farmOverlayEl, farmBeesEl,
-    beesContentEl, beesPollenEl, questsContentEl, shopContentEl, shopHoneyEl, shopDiamondsEl, profileContentEl,
+    questsContentEl, shopContentEl, shopHoneyEl, shopDiamondsEl, shopPollenEl, profileContentEl,
     boosterBtns, boosterCountEls, boosterHintEl;
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -2097,7 +2121,6 @@ function showScreen(name) {
 function navigateTo(name) {
   showScreen(name);
   if (name === 'apiary') enterApiary();
-  else if (name === 'bees') renderBeesScreen();
   else if (name === 'quests') renderQuestsScreen();
   else if (name === 'shop') renderShopScreen();
   else if (name === 'profile') renderProfileScreen();
@@ -2110,7 +2133,7 @@ function updateAllCurrencyDisplays() {
   resDiamondsEl.textContent = gameState.diamonds;
   const unlockedRing = gameState.territory.filter((t) => t.unlocked).length;
   resTerritoryEl.textContent = unlockedRing + '/' + gameState.territory.length;
-  beesPollenEl.textContent = gameState.pollen;
+  shopPollenEl.textContent = gameState.pollen;
   shopHoneyEl.textContent = gameState.honey;
   shopDiamondsEl.textContent = gameState.diamonds;
 }
@@ -2475,31 +2498,6 @@ function renderApiaryScreen() {
 
 const BEE_ICON_ACCENT = { bee_queen: ' bee-icon--queen', bee_scout: ' bee-icon--scout' };
 
-function renderBeesScreen() {
-  updateAllCurrencyDisplays();
-  beesContentEl.innerHTML = '';
-  for (const bee of gameState.bees) {
-    const def = BEE_DEFS[bee.id];
-    const accent = BEE_ICON_ACCENT[bee.id] || '';
-    const card = document.createElement('div');
-    card.className = 'bee-card';
-    if (bee.owned) {
-      card.innerHTML =
-        '<div class="bee-icon' + accent + '">' + def.icon + '</div>' +
-        '<div class="bee-info"><div class="bee-name">' + def.name + '</div><div class="bee-desc">' + def.description + '</div></div>' +
-        '<div class="bee-badge">Открыта</div>';
-    } else {
-      const currencyIcon = def.costCurrency === 'pollen' ? '🌸' : '🍯';
-      card.innerHTML =
-        '<div class="bee-icon dim' + accent + '">' + def.icon + '</div>' +
-        '<div class="bee-info"><div class="bee-name">' + def.name + '</div><div class="bee-desc">' + def.description + '</div></div>' +
-        '<button class="small-action-btn" data-action="unlock-bee" data-id="' + bee.id + '"' +
-          (gameState[def.costCurrency] < def.cost ? ' disabled' : '') + '>Открыть · ' + def.cost + currencyIcon + '</button>';
-    }
-    beesContentEl.appendChild(card);
-  }
-}
-
 function questRewardText(q) {
   const parts = [];
   if (q.rewardHoney) parts.push(q.rewardHoney + '🍯');
@@ -2541,83 +2539,123 @@ function renderShopScreen() {
   updateAllCurrencyDisplays();
   shopContentEl.innerHTML = '';
 
-  const beeLabel = document.createElement('div');
-  beeLabel.className = 'section-label';
-  beeLabel.textContent = 'Пчёлы';
-  shopContentEl.appendChild(beeLabel);
+  function addLabel(text) {
+    const label = document.createElement('div');
+    label.className = 'section-label';
+    label.textContent = text;
+    shopContentEl.appendChild(label);
+  }
 
+  // ---- Цветы: every flower species among the project assets. Flowers have no
+  // per-species buy action anywhere in the game (they're auto-placed on unlocked
+  // plots), so this is a read-only catalog tile — not a new purchase mechanic.
+  addLabel('Цветы');
+  Object.keys(FLOWER_DEFS).forEach((key) => {
+    const def = FLOWER_DEFS[key];
+    const tile = document.createElement('div');
+    tile.className = 'shop-tile';
+    tile.innerHTML =
+      '<div class="bee-tier-icon"><img src="' + def.icon + '" alt=""></div>' +
+      '<div class="bee-name">' + def.name + '</div>';
+    shopContentEl.appendChild(tile);
+  });
+
+  // ---- Пчёлы: the tier ladder + the collectible bees (moved here from the
+  // now-removed separate "Пчёлы" screen — same gameState.bees / BEE_DEFS data
+  // and the same unlock-bee action, just shown in one place now).
+  addLabel('Пчёлы');
   BEE_TIERS.forEach((t) => {
-    const card = document.createElement('div');
-    card.className = 'bee-card';
+    const tile = document.createElement('div');
+    tile.className = 'shop-tile';
     if (t.tier < gameState.beeTier) {
-      card.innerHTML =
+      tile.innerHTML =
         '<img class="bee-tier-icon dim" src="' + t.icon + '" alt="">' +
-        '<div class="bee-info"><div class="bee-name">' + t.name + '</div></div>' +
+        '<div class="bee-name">' + t.name + '</div>' +
         '<div class="bee-badge">Пройдено</div>';
     } else if (t.tier === gameState.beeTier) {
-      card.innerHTML =
+      tile.innerHTML =
         '<img class="bee-tier-icon" src="' + t.icon + '" alt="">' +
-        '<div class="bee-info"><div class="bee-name">' + t.name + '</div><div class="bee-desc">' + (t.bonusPct > 0 ? '+' + t.bonusPct + '% мёда за линию' : 'Текущая пчела') + '</div></div>' +
+        '<div class="bee-name">' + t.name + '</div>' +
+        '<div class="bee-desc">' + (t.bonusPct > 0 ? '+' + t.bonusPct + '% мёда за линию' : 'Текущая пчела') + '</div>' +
         '<div class="bee-badge">Текущая</div>';
     } else if (t.tier === gameState.beeTier + 1) {
       const levelOk = gameState.level >= t.requiredLevel;
       const canBuy = levelOk && gameState.honey >= t.cost;
-      card.innerHTML =
+      tile.innerHTML =
         '<img class="bee-tier-icon' + (canBuy ? '' : ' dim') + '" src="' + t.icon + '" alt="">' +
-        '<div class="bee-info"><div class="bee-name">' + t.name + '</div><div class="bee-desc">' +
-          (levelOk ? '+' + t.bonusPct + '% мёда за линию' : 'Нужен уровень ' + t.requiredLevel) + '</div></div>' +
+        '<div class="bee-name">' + t.name + '</div>' +
+        '<div class="bee-desc">' + (levelOk ? '+' + t.bonusPct + '% мёда за линию' : 'Нужен уровень ' + t.requiredLevel) + '</div>' +
         '<button class="small-action-btn" data-action="buy-bee-tier"' + (canBuy ? '' : ' disabled') + '>Купить · ' + t.cost + '🍯</button>';
     } else {
-      card.innerHTML =
+      tile.innerHTML =
         '<img class="bee-tier-icon dim" src="' + t.icon + '" alt="">' +
-        '<div class="bee-info"><div class="bee-name">' + t.name + '</div><div class="bee-desc">Открывается на ур. ' + t.requiredLevel + '</div></div>';
+        '<div class="bee-name">' + t.name + '</div>' +
+        '<div class="bee-desc">Открывается на ур. ' + t.requiredLevel + '</div>';
     }
-    shopContentEl.appendChild(card);
+    shopContentEl.appendChild(tile);
   });
 
-  const boosterLabel = document.createElement('div');
-  boosterLabel.className = 'section-label';
-  boosterLabel.textContent = 'Бустеры';
-  shopContentEl.appendChild(boosterLabel);
+  for (const bee of gameState.bees) {
+    const def = BEE_DEFS[bee.id];
+    const accent = BEE_ICON_ACCENT[bee.id] || '';
+    const tile = document.createElement('div');
+    tile.className = 'shop-tile';
+    if (bee.owned) {
+      tile.innerHTML =
+        '<div class="bee-icon' + accent + '">' + def.icon + '</div>' +
+        '<div class="bee-name">' + def.name + '</div>' +
+        '<div class="bee-desc">' + def.description + '</div>' +
+        '<div class="bee-badge">Открыта</div>';
+    } else {
+      const currencyIcon = def.costCurrency === 'pollen' ? '🌸' : '🍯';
+      tile.innerHTML =
+        '<div class="bee-icon dim' + accent + '">' + def.icon + '</div>' +
+        '<div class="bee-name">' + def.name + '</div>' +
+        '<div class="bee-desc">' + def.description + '</div>' +
+        '<button class="small-action-btn" data-action="unlock-bee" data-id="' + bee.id + '"' +
+          (gameState[def.costCurrency] < def.cost ? ' disabled' : '') + '>Открыть · ' + def.cost + currencyIcon + '</button>';
+    }
+    shopContentEl.appendChild(tile);
+  }
 
+  // ---- Бустеры (unchanged logic — new vertical tile markup only)
+  addLabel('Бустеры');
   for (const type of ['hammer', 'bomb', 'laser']) {
     const def = BOOSTER_DEFS[type];
     const owned = gameState.boosters[type] || 0;
     const currencyIcon = def.currency === 'diamonds' ? '💎' : '🍯';
-    const card = document.createElement('div');
-    card.className = 'bee-card';
-    card.innerHTML =
+    const tile = document.createElement('div');
+    tile.className = 'shop-tile';
+    tile.innerHTML =
       '<div class="bee-icon">' + def.icon + '</div>' +
-      '<div class="bee-info"><div class="bee-name">' + def.name + ' · есть ' + owned + '</div><div class="bee-desc">' + def.desc + '</div></div>' +
+      '<div class="bee-name">' + def.name + ' · есть ' + owned + '</div>' +
+      '<div class="bee-desc">' + def.desc + '</div>' +
       '<button class="small-action-btn" data-action="buy-booster" data-id="' + type + '"' +
         (gameState[def.currency] < def.cost ? ' disabled' : '') + '>Купить · ' + def.cost + currencyIcon + '</button>';
-    shopContentEl.appendChild(card);
+    shopContentEl.appendChild(tile);
   }
 
-  const decorLabel = document.createElement('div');
-  decorLabel.className = 'section-label';
-  decorLabel.textContent = 'Украшения';
-  shopContentEl.appendChild(decorLabel);
-
+  // ---- Украшения (unchanged logic — new vertical tile markup only)
+  addLabel('Украшения');
   for (const decor of gameState.decorations) {
     const def = DECOR_DEFS[decor.id];
     if (def.hidden) continue;
     const accent = def.statue ? ' bee-icon--statue' : '';
-    const card = document.createElement('div');
-    card.className = 'bee-card';
+    const tile = document.createElement('div');
+    tile.className = 'shop-tile';
     if (decor.owned) {
-      card.innerHTML =
+      tile.innerHTML =
         '<div class="bee-icon' + accent + '">' + def.icon + '</div>' +
-        '<div class="bee-info"><div class="bee-name">' + def.name + '</div></div>' +
+        '<div class="bee-name">' + def.name + '</div>' +
         '<div class="bee-badge">Куплено</div>';
     } else {
-      card.innerHTML =
+      tile.innerHTML =
         '<div class="bee-icon dim' + accent + '">' + def.icon + '</div>' +
-        '<div class="bee-info"><div class="bee-name">' + def.name + '</div></div>' +
+        '<div class="bee-name">' + def.name + '</div>' +
         '<button class="small-action-btn" data-action="buy-decor" data-id="' + decor.id + '"' +
           (gameState.honey < def.cost ? ' disabled' : '') + '>Купить · ' + def.cost + '🍯</button>';
     }
-    shopContentEl.appendChild(card);
+    shopContentEl.appendChild(tile);
   }
 }
 
@@ -2643,14 +2681,6 @@ function renderProfileScreen() {
 }
 
 function wireEconomyActions() {
-  beesContentEl.addEventListener('click', function (e) {
-    const btn = e.target.closest('button[data-action="unlock-bee"]');
-    if (!btn) return;
-    unlockBee(gameState, btn.dataset.id);
-    saveGameState();
-    renderBeesScreen();
-  });
-
   shopContentEl.addEventListener('click', function (e) {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -2658,6 +2688,7 @@ function wireEconomyActions() {
     if (action === 'buy-decor') buyDecoration(gameState, id);
     else if (action === 'buy-booster') buyBooster(gameState, id);
     else if (action === 'buy-bee-tier') buyNextBeeTier(gameState);
+    else if (action === 'unlock-bee') unlockBee(gameState, id);
     saveGameState();
     renderShopScreen();
   });
@@ -2799,12 +2830,11 @@ function cacheDom() {
   farmOverlayEl = document.getElementById('farm-overlay');
   farmBeesEl = document.getElementById('farm-bees');
 
-  beesContentEl = document.getElementById('bees-content');
-  beesPollenEl = document.getElementById('bees-pollen');
   questsContentEl = document.getElementById('quests-content');
   shopContentEl = document.getElementById('shop-content');
   shopHoneyEl = document.getElementById('shop-honey');
   shopDiamondsEl = document.getElementById('shop-diamonds');
+  shopPollenEl = document.getElementById('shop-pollen');
   profileContentEl = document.getElementById('profile-content');
 }
 
