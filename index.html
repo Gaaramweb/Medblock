@@ -654,7 +654,7 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
-    align-items: start;
+    align-items: stretch;
   }
   #shop-content .section-label { grid-column: 1 / -1; margin-top: 10px; }
   #shop-content .section-label:first-child { margin-top: 0; }
@@ -673,12 +673,18 @@
     box-shadow: 0 3px 0 rgba(0,0,0,0.14), 0 6px 14px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
     transition: transform 0.12s ease;
   }
+  /* Every tile in a row stretches to the same height (align-items:stretch above);
+     this keeps the icon/name/desc grouped at the top and pins whatever comes last
+     (badge or buy button) to the same bottom line across a row, even when one
+     tile's description text runs a line longer than its neighbour's. */
+  .shop-tile { justify-content: space-between; }
   .shop-tile:active { transform: translateY(1px); }
   .shop-tile .bee-desc { margin-top: 0; }
 
   .bee-icon {
     font-size: 1.55rem; flex: 0 0 auto;
     width: 46px; height: 46px;
+    padding: 4px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 50%;
     background: radial-gradient(circle at 32% 28%, rgba(255,255,255,0.35), transparent 55%),
@@ -704,6 +710,7 @@
     padding: 4px;
   }
   .bee-tier-icon.dim { opacity: 0.45; filter: grayscale(0.8); }
+  .bee-tier-icon--sm { width: 36px; height: 36px; padding: 3px; }
   .bee-desc { font-size: 0.78rem; opacity: 0.75; font-weight: 600; line-height: 1.35; margin-top: 2px; }
   .bee-badge {
     font-size: 0.75rem; font-weight: 800; color: var(--leaf);
@@ -2176,6 +2183,13 @@ function farmAxialToPixel(q, r, size) {
 
 let farmLayout = null;
 let hivePopoverOpen = false;
+// Simple bounded pan for the territory map: computeFarmLayout() already tries to
+// fit everything (option "scale to fit"), but on very tight mobile viewports the
+// 22px minimum hex size can still be larger than what actually fits — panning is
+// the fallback ("option B") so nothing real ever ends up permanently unreachable.
+let farmPanX = 0, farmPanY = 0;
+let farmPanDragging = false, farmPanMoved = false;
+let farmPanStartClientX = 0, farmPanStartClientY = 0, farmPanBaseX = 0, farmPanBaseY = 0;
 
 function computeFarmLayout() {
   if (!farmStageEl) return;
@@ -2187,8 +2201,73 @@ function computeFarmLayout() {
   const maxY = Math.max(0.001, ...allPts.map((p) => Math.abs(p.y)));
   // "size" doubles as the hex circumradius, so ring tiles spaced with farmAxialToPixel
   // touch edge-to-edge exactly when each hex is drawn at width = size*sqrt(3), height = size*2.
-  const size = Math.max(22, Math.min((cssWidth * 0.62) / maxX, (cssHeight * 0.5) / maxY, 52));
+  // Priority "scale to fit" first: shrink toward whatever the container actually offers.
+  // Only once that hits the 22px floor (map genuinely doesn't fit) does the extra room
+  // get made up with panning instead of silently clipping real, tappable tiles.
+  const fitByWidth = (cssWidth * 0.62) / maxX;
+  const fitByHeight = (cssHeight * 0.5) / maxY;
+  const size = Math.max(22, Math.min(fitByWidth, fitByHeight, 52));
   farmLayout = { originX: cssWidth / 2, originY: cssHeight * 0.46, size: size };
+  farmPanX = 0;
+  farmPanY = 0;
+  applyFarmPanTransform();
+}
+
+function clampFarmPan(x, y) {
+  // Just enough range to reach anything the fit pass couldn't shrink to — a couple
+  // of hex-widths in any direction — not a free-roam camera over the whole fog ring.
+  const maxPan = farmLayout ? farmLayout.size * 2.6 : 90;
+  return { x: Math.max(-maxPan, Math.min(maxPan, x)), y: Math.max(-maxPan, Math.min(maxPan, y)) };
+}
+
+function applyFarmPanTransform() {
+  if (!farmOverlayEl) return;
+  farmOverlayEl.style.transform = 'translate(' + farmPanX + 'px, ' + farmPanY + 'px)';
+}
+
+function farmPanPointFromEvent(e) {
+  if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+function onFarmPanStart(e) {
+  if (e.target.closest('.farm-hive-popover')) return; // never hijack the upgrade popover's own taps
+  const p = farmPanPointFromEvent(e);
+  farmPanDragging = true;
+  farmPanMoved = false;
+  farmPanStartClientX = p.x;
+  farmPanStartClientY = p.y;
+  farmPanBaseX = farmPanX;
+  farmPanBaseY = farmPanY;
+}
+
+function onFarmPanMove(e) {
+  if (!farmPanDragging) return;
+  const p = farmPanPointFromEvent(e);
+  const dx = p.x - farmPanStartClientX;
+  const dy = p.y - farmPanStartClientY;
+  if (Math.abs(dx) > 6 || Math.abs(dy) > 6) farmPanMoved = true;
+  if (!farmPanMoved) return;
+  if (e.cancelable) e.preventDefault();
+  const c = clampFarmPan(farmPanBaseX + dx, farmPanBaseY + dy);
+  farmPanX = c.x;
+  farmPanY = c.y;
+  applyFarmPanTransform();
+}
+
+function onFarmPanEnd() {
+  farmPanDragging = false;
+}
+
+// A drag that actually moved the map shouldn't also fire whatever tile sits under
+// the finger/cursor when it's released — this swallows that one synthetic click.
+function onFarmStageClickCapture(e) {
+  if (farmPanMoved) {
+    e.stopPropagation();
+    e.preventDefault();
+    farmPanMoved = false;
+  }
 }
 
 function showFarmToast(text) {
@@ -2288,7 +2367,7 @@ function renderFarmOverlay() {
     if (!tile.unlocked) {
       const cost = territoryUnlockCost(gameState);
       const el = makeHexTile('locked', size, p.x, p.y, true);
-      el.innerHTML = '<div class="hex-tile-tag"><img src="assets/icon_honey.png" alt=""><span>' + cost + '</span></div>';
+      el.innerHTML = '<div class="hex-tile-tag">🍯<span>' + cost + '</span></div>';
       el.addEventListener('click', () => onTerritoryTap(i));
       farmOverlayEl.appendChild(el);
     } else if (tile.starterFlower || tile.decorId) {
@@ -2296,11 +2375,15 @@ function renderFarmOverlay() {
       el.innerHTML = '<img class="hex-tile-icon" src="' + flowerIconForTile(i) + '" alt="">';
       farmOverlayEl.appendChild(el);
     } else {
-      // Unlocked and nothing planted yet — shown as a productive honey tile
-      // (purely visual flavor; the "60m" tag is not a real timer).
+      // Unlocked and nothing planted yet. icon_honey.png is an opaque 32x32 PNG
+      // (solid square background, no alpha) — fine on the cream chips it was
+      // designed for, but it showed up as a jarring white box sitting on this
+      // translucent hex fill. Rather than swap the shared asset, this state just
+      // shows no icon at all: the tile keeps its hex shape/fill/position and tag,
+      // with nothing opaque floating on top of it (purely visual flavor either way;
+      // the "60m" tag is not a real timer).
       const el = makeHexTile('empty', size, p.x, p.y, false);
-      el.innerHTML = '<img class="hex-tile-icon" src="assets/icon_honey.png" alt="">' +
-        '<div class="hex-tile-tag"><span>60М МЁД</span></div>';
+      el.innerHTML = '<div class="hex-tile-tag">60М МЁД</div>';
       farmOverlayEl.appendChild(el);
     }
   });
@@ -2548,15 +2631,19 @@ function renderShopScreen() {
 
   // ---- Цветы: every flower species among the project assets. Flowers have no
   // per-species buy action anywhere in the game (they're auto-placed on unlocked
-  // plots), so this is a read-only catalog tile — not a new purchase mechanic.
+  // plots), so this stays a read-only catalog tile — not a new purchase mechanic.
+  // Price shown is the game's one real flower-decoration cost (DECOR_DEFS.flower_1),
+  // not a made-up per-species price.
   addLabel('Цветы');
+  const flowerPrice = DECOR_DEFS.flower_1.cost;
   Object.keys(FLOWER_DEFS).forEach((key) => {
     const def = FLOWER_DEFS[key];
     const tile = document.createElement('div');
     tile.className = 'shop-tile';
     tile.innerHTML =
-      '<div class="bee-tier-icon"><img src="' + def.icon + '" alt=""></div>' +
-      '<div class="bee-name">' + def.name + '</div>';
+      '<img class="bee-tier-icon bee-tier-icon--sm" src="' + def.icon + '" alt="">' +
+      '<div class="bee-name">' + def.name + '</div>' +
+      '<div class="bee-desc">' + flowerPrice + '🍯</div>';
     shopContentEl.appendChild(tile);
   });
 
@@ -2829,6 +2916,15 @@ function cacheDom() {
   farmStageEl = document.getElementById('farm-stage');
   farmOverlayEl = document.getElementById('farm-overlay');
   farmBeesEl = document.getElementById('farm-bees');
+
+  // Bounded drag-to-pan over the territory map (see computeFarmLayout) — pointer
+  // events cover mouse + touch + pen in one listener set.
+  farmStageEl.addEventListener('pointerdown', onFarmPanStart);
+  farmStageEl.addEventListener('pointermove', onFarmPanMove);
+  farmStageEl.addEventListener('pointerup', onFarmPanEnd);
+  farmStageEl.addEventListener('pointercancel', onFarmPanEnd);
+  farmStageEl.addEventListener('pointerleave', onFarmPanEnd);
+  farmStageEl.addEventListener('click', onFarmStageClickCapture, true);
 
   questsContentEl = document.getElementById('quests-content');
   shopContentEl = document.getElementById('shop-content');
