@@ -345,7 +345,10 @@
      overflow:hidden is kept only to crop the decorative outer hex rings at the edges. */
   .farm-stage {
     position: relative; flex: 1; min-height: 0; margin: 2px 8px; border-radius: 18px; overflow: hidden;
+    touch-action: none; /* this element owns drag-to-pan itself, not the browser's scroll/zoom gestures */
+    cursor: grab;
   }
+  .farm-stage:active { cursor: grabbing; }
 
   /* -- Flat hex tile (pointy-top, matches farmAxialToPixel's axial layout) -- */
   .hex-tile {
@@ -358,12 +361,13 @@
   .hex-tile--clickable { cursor: pointer; pointer-events: auto; }
   .hex-tile--clickable:active { transform: translate(-50%, -50%) scale(0.93); }
   /* The lock art (hex_locked.png) is already a full flat hex badge with its own
-     bevel + padlock baked in, so it's used as the tile's fill (cover-fit inside
-     our own clip-path mask) rather than drawn from a color + separate icon. */
+     bevel + padlock baked in, so it's used as the tile's fill. contain (not cover)
+     so the whole badge always shows — cover would crop its edges whenever the PNG's
+     own aspect ratio doesn't exactly match this hex's. */
   .hex-tile--locked {
     background-color: var(--hex-locked-deep);
     background-image: url('assets/hex_locked.png');
-    background-size: cover; background-position: center;
+    background-size: contain; background-position: center; background-repeat: no-repeat;
   }
   /* Ring tiles tessellate edge-to-edge with zero gaps, so an opaque fill here would
      completely hide .farm-stage's own grass/hex-line background underneath — nothing
@@ -397,7 +401,7 @@
   .hex-tile--locked-deco {
     background-color: var(--hex-locked-deep);
     background-image: url('assets/hex_locked.png');
-    background-size: cover; background-position: center;
+    background-size: contain; background-position: center; background-repeat: no-repeat;
     opacity: 0.6; pointer-events: none;
   }
   .hex-tile--locked-deco.ring-3 { opacity: 0.4; }
@@ -411,7 +415,7 @@
     transition: transform 0.12s cubic-bezier(.34,1.56,.64,1);
   }
   .farm-hive-img:active { transform: translate(-50%, -58%) scale(0.94); }
-  .farm-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  .farm-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; will-change: transform; }
   .farm-bees { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
   .farm-bee { position: absolute; width: 30px; height: 30px; will-change: left, top, transform; }
   .farm-bee img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -663,6 +667,23 @@
   }
   @media (min-width: 720px) {
     #shop-content { grid-template-columns: repeat(3, 1fr); gap: 14px 12px; }
+  }
+
+  /* -- Collection grid (Профиль → Коллекция): denser than the shop grid since these
+     tiles carry no buy button, just an icon/name/badge — same responsive idea
+     (more columns as space allows), reusing .shop-tile/.bee-icon/.bee-tier-icon. -- */
+  .collection-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    align-items: stretch;
+    margin-top: 6px;
+  }
+  @media (min-width: 480px) {
+    .collection-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (min-width: 720px) {
+    .collection-grid { grid-template-columns: repeat(4, 1fr); }
   }
   .shop-tile {
     display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
@@ -2761,10 +2782,57 @@ function renderProfileScreen() {
     { label: 'Пчёл открыто', value: ownedBees + '/' + s.bees.length },
     { label: 'Украшений куплено', value: ownedDecor },
   ];
-  profileContentEl.innerHTML =
-    '<div class="results-grid">' +
+
+  let html = '<div class="results-grid">' +
     rows.map((r) => '<div class="result"><span class="result-value">' + r.value + '</span><span class="result-label">' + r.label + '</span></div>').join('') +
     '</div>';
+
+  // ---- Коллекция: a read-only "what else is there to unlock" overview, built
+  // entirely from data that already exists (bee tiers/collectible bees, the decor
+  // catalog including the hidden golden_flower, and the level-gated hive tiers) —
+  // no new costs or mechanics, just surfacing state that had no summary view before.
+  html += '<div class="section-label" style="margin-top:14px;">Коллекция · Пчёлы</div><div class="collection-grid">';
+  html += BEE_TIERS.map((t) => {
+    const owned = t.tier <= s.beeTier;
+    return '<div class="shop-tile"><img class="bee-tier-icon bee-tier-icon--sm' + (owned ? '' : ' dim') + '" src="' + t.icon + '" alt="">' +
+      '<div class="bee-name">' + t.name + '</div>' +
+      '<div class="bee-badge">' + (owned ? 'Открыта' : 'ур. ' + t.requiredLevel) + '</div></div>';
+  }).join('');
+  html += s.bees.map((bee) => {
+    const def = BEE_DEFS[bee.id];
+    const accent = BEE_ICON_ACCENT[bee.id] || '';
+    return '<div class="shop-tile"><div class="bee-icon' + (bee.owned ? '' : ' dim') + accent + '">' + def.icon + '</div>' +
+      '<div class="bee-name">' + def.name + '</div>' +
+      '<div class="bee-badge">' + (bee.owned ? 'Открыта' : 'Заблокирована') + '</div></div>';
+  }).join('');
+  html += '</div>';
+
+  html += '<div class="section-label" style="margin-top:14px;">Коллекция · Украшения</div><div class="collection-grid">';
+  html += s.decorations.map((decor) => {
+    const def = DECOR_DEFS[decor.id];
+    const accent = def.statue ? ' bee-icon--statue' : '';
+    const badge = decor.owned ? 'Куплено' : (def.cost == null ? 'Скоро' : 'Не куплено');
+    return '<div class="shop-tile"><div class="bee-icon' + (decor.owned ? '' : ' dim') + accent + '">' + def.icon + '</div>' +
+      '<div class="bee-name">' + def.name + '</div>' +
+      '<div class="bee-badge">' + badge + '</div></div>';
+  }).join('');
+  html += '</div>';
+
+  const hiveTiers = [
+    { key: 't1', name: 'Улей I', minLevel: 1 },
+    { key: 't2', name: 'Улей II', minLevel: 4 },
+    { key: 't3', name: 'Улей III', minLevel: 7 },
+  ];
+  html += '<div class="section-label" style="margin-top:14px;">Коллекция · Улей</div><div class="collection-grid">';
+  html += hiveTiers.map((h) => {
+    const owned = s.level >= h.minLevel;
+    return '<div class="shop-tile"><div class="bee-icon' + (owned ? '' : ' dim') + '">🏡</div>' +
+      '<div class="bee-name">' + h.name + '</div>' +
+      '<div class="bee-badge">' + (owned ? 'Открыта' : 'ур. ' + h.minLevel) + '</div></div>';
+  }).join('');
+  html += '</div>';
+
+  profileContentEl.innerHTML = html;
 }
 
 function wireEconomyActions() {
