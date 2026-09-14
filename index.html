@@ -342,13 +342,11 @@
      Every hive/ring tile is a real hexagon (clip-path), drawn in code — so unlike baked
      image art it always lines up exactly with the axial math below, at any size.
      No background of its own — the shared #bg-layer PNG shows straight through here too;
-     overflow:hidden is kept only to crop the decorative outer hex rings at the edges. */
+     overflow:hidden is kept only as a safety edge, not for cropping — everything here
+     is sized to fit the container, not panned or clipped. */
   .farm-stage {
     position: relative; flex: 1; min-height: 0; margin: 2px 8px; border-radius: 18px; overflow: hidden;
-    touch-action: none; /* this element owns drag-to-pan itself, not the browser's scroll/zoom gestures */
-    cursor: grab;
   }
-  .farm-stage:active { cursor: grabbing; }
 
   /* -- Flat hex tile (pointy-top, matches farmAxialToPixel's axial layout) -- */
   .hex-tile {
@@ -369,17 +367,17 @@
     background-image: url('assets/hex_locked.png');
     background-size: contain; background-position: center; background-repeat: no-repeat;
   }
-  /* Ring tiles tessellate edge-to-edge with zero gaps, so an opaque fill here would
-     completely hide .farm-stage's own grass/hex-line background underneath — nothing
-     would ever show through. Once a plot is unlocked it goes translucent instead, so
-     the field is visible through the cell, with just a thin bright rim marking the slot. */
+  /* Ring tiles tessellate edge-to-edge with zero gaps, so any fill here — even the
+     previous ~38% tint — sits in front of the shared #bg-layer PNG for the entire
+     cell. After a plot is bought/planted it now keeps only its hex outline: no fill
+     at all, so the background is what actually shows inside the border, not a tint. */
   .hex-tile--empty {
-    background: linear-gradient(160deg, rgba(255,207,92,0.38), rgba(240,169,30,0.38));
-    box-shadow: inset 0 -6px 0 rgba(0,0,0,0.08), inset 0 2px 0 rgba(255,255,255,0.4), inset 0 0 0 2px rgba(255,255,255,0.3);
+    background: transparent;
+    box-shadow: inset 0 0 0 2px rgba(255,207,92,0.55);
   }
   .hex-tile--planted {
-    background: linear-gradient(160deg, rgba(169,217,122,0.38), rgba(110,163,56,0.38));
-    box-shadow: inset 0 -6px 0 rgba(0,0,0,0.08), inset 0 2px 0 rgba(255,255,255,0.4), inset 0 0 0 2px rgba(255,255,255,0.3);
+    background: transparent;
+    box-shadow: inset 0 0 0 2px rgba(169,217,122,0.55);
   }
   .hex-tile--hive { background: linear-gradient(160deg, var(--hex-hive), var(--hex-hive-deep)); z-index: 2; cursor: pointer; pointer-events: auto; }
   .hex-tile--hive:active { transform: translate(-50%, -50%) scale(0.95); }
@@ -415,7 +413,7 @@
     transition: transform 0.12s cubic-bezier(.34,1.56,.64,1);
   }
   .farm-hive-img:active { transform: translate(-50%, -58%) scale(0.94); }
-  .farm-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; will-change: transform; }
+  .farm-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
   .farm-bees { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
   .farm-bee { position: absolute; width: 30px; height: 30px; will-change: left, top, transform; }
   .farm-bee img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -2204,91 +2202,25 @@ function farmAxialToPixel(q, r, size) {
 
 let farmLayout = null;
 let hivePopoverOpen = false;
-// Simple bounded pan for the territory map: computeFarmLayout() already tries to
-// fit everything (option "scale to fit"), but on very tight mobile viewports the
-// 22px minimum hex size can still be larger than what actually fits — panning is
-// the fallback ("option B") so nothing real ever ends up permanently unreachable.
-let farmPanX = 0, farmPanY = 0;
-let farmPanDragging = false, farmPanMoved = false;
-let farmPanStartClientX = 0, farmPanStartClientY = 0, farmPanBaseX = 0, farmPanBaseY = 0;
 
 function computeFarmLayout() {
   if (!farmStageEl) return;
   const rect = farmStageEl.getBoundingClientRect();
   const cssWidth = Math.max(1, rect.width);
   const cssHeight = Math.max(1, rect.height);
-  const allPts = [{ q: 0, r: 0 }].concat(FARM_RING_ORDER).map((p) => farmAxialToPixel(p.q, p.r, 1));
+  // The decorative side hexes (see FARM_DECORATIVE_SIDES below) now count toward
+  // "must fit" too — no panning, no cropping: everything visible always scales to
+  // fit the container instead. They only extend sideways (r=0), so they push maxX
+  // out a lot without touching maxY, which is exactly the point.
+  const allPts = [{ q: 0, r: 0 }].concat(FARM_RING_ORDER).concat(FARM_DECORATIVE_SIDES).map((p) => farmAxialToPixel(p.q, p.r, 1));
   const maxX = Math.max(0.001, ...allPts.map((p) => Math.abs(p.x)));
   const maxY = Math.max(0.001, ...allPts.map((p) => Math.abs(p.y)));
   // "size" doubles as the hex circumradius, so ring tiles spaced with farmAxialToPixel
   // touch edge-to-edge exactly when each hex is drawn at width = size*sqrt(3), height = size*2.
-  // Priority "scale to fit" first: shrink toward whatever the container actually offers.
-  // Only once that hits the 22px floor (map genuinely doesn't fit) does the extra room
-  // get made up with panning instead of silently clipping real, tappable tiles.
-  const fitByWidth = (cssWidth * 0.62) / maxX;
-  const fitByHeight = (cssHeight * 0.5) / maxY;
-  const size = Math.max(22, Math.min(fitByWidth, fitByHeight, 52));
+  const fitByWidth = (cssWidth * 0.85) / maxX;
+  const fitByHeight = (cssHeight * 0.58) / maxY;
+  const size = Math.max(16, Math.min(fitByWidth, fitByHeight, 52));
   farmLayout = { originX: cssWidth / 2, originY: cssHeight * 0.46, size: size };
-  farmPanX = 0;
-  farmPanY = 0;
-  applyFarmPanTransform();
-}
-
-function clampFarmPan(x, y) {
-  // Just enough range to reach anything the fit pass couldn't shrink to — a couple
-  // of hex-widths in any direction — not a free-roam camera over the whole fog ring.
-  const maxPan = farmLayout ? farmLayout.size * 2.6 : 90;
-  return { x: Math.max(-maxPan, Math.min(maxPan, x)), y: Math.max(-maxPan, Math.min(maxPan, y)) };
-}
-
-function applyFarmPanTransform() {
-  if (!farmOverlayEl) return;
-  farmOverlayEl.style.transform = 'translate(' + farmPanX + 'px, ' + farmPanY + 'px)';
-}
-
-function farmPanPointFromEvent(e) {
-  if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
-  return { x: e.clientX, y: e.clientY };
-}
-
-function onFarmPanStart(e) {
-  if (e.target.closest('.farm-hive-popover')) return; // never hijack the upgrade popover's own taps
-  const p = farmPanPointFromEvent(e);
-  farmPanDragging = true;
-  farmPanMoved = false;
-  farmPanStartClientX = p.x;
-  farmPanStartClientY = p.y;
-  farmPanBaseX = farmPanX;
-  farmPanBaseY = farmPanY;
-}
-
-function onFarmPanMove(e) {
-  if (!farmPanDragging) return;
-  const p = farmPanPointFromEvent(e);
-  const dx = p.x - farmPanStartClientX;
-  const dy = p.y - farmPanStartClientY;
-  if (Math.abs(dx) > 6 || Math.abs(dy) > 6) farmPanMoved = true;
-  if (!farmPanMoved) return;
-  if (e.cancelable) e.preventDefault();
-  const c = clampFarmPan(farmPanBaseX + dx, farmPanBaseY + dy);
-  farmPanX = c.x;
-  farmPanY = c.y;
-  applyFarmPanTransform();
-}
-
-function onFarmPanEnd() {
-  farmPanDragging = false;
-}
-
-// A drag that actually moved the map shouldn't also fire whatever tile sits under
-// the finger/cursor when it's released — this swallows that one synthetic click.
-function onFarmStageClickCapture(e) {
-  if (farmPanMoved) {
-    e.stopPropagation();
-    e.preventDefault();
-    farmPanMoved = false;
-  }
 }
 
 function showFarmToast(text) {
@@ -2340,24 +2272,12 @@ function makeHexTile(kind, size, x, y, clickable) {
   return wrap;
 }
 
-// Generic axial hex-ring generator (redblobgames' standard ring-walk): returns the
-// `radius` distance-N axial coordinates around the origin. Used only for the
-// decorative outer rings below — the real 6-tile territory ring is untouched
-// game data (FARM_RING_ORDER), not generated by this.
-function axialRing(radius) {
-  const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
-  const out = [];
-  let q = dirs[4][0] * radius, r = dirs[4][1] * radius;
-  for (let i = 0; i < 6; i++) {
-    for (let j = 0; j < radius; j++) {
-      out.push({ q: q, r: r });
-      q += dirs[i][0]; r += dirs[i][1];
-    }
-  }
-  return out;
-}
-const FARM_DECORATIVE_RING_2 = axialRing(2);
-const FARM_DECORATIVE_RING_3 = axialRing(3);
+// Decorative "the map keeps going" hexes: only sideways (r=0), no top/bottom row
+// and no hexagonal silhouette — per feedback, the field itself shouldn't look
+// hexagon-shaped. Not clickable, no game state, just dressing; included in
+// computeFarmLayout's own fit math above so they always scale to fit too.
+const FARM_DECORATIVE_SIDES = [];
+[2, 3, 4].forEach((q) => { FARM_DECORATIVE_SIDES.push({ q: q, r: 0 }, { q: -q, r: 0 }); });
 
 function renderFarmOverlay() {
   if (!farmLayout || !gameState) return;
@@ -2368,18 +2288,12 @@ function renderFarmOverlay() {
     return { x: farmLayout.originX + p.x, y: farmLayout.originY + p.y };
   };
 
-  // Decorative fog-of-map hexes beyond the 6 real plots — not clickable, no game
-  // state, just dressing so the honeycomb reads as a bigger map. .farm-stage's own
-  // overflow:hidden naturally crops whatever falls outside the visible screen, so
-  // this never floods the whole background solid.
-  FARM_DECORATIVE_RING_2.forEach((c) => {
-    const p = toScreen(c.q, c.r);
-    farmOverlayEl.appendChild(makeHexTile('locked-deco', size, p.x, p.y, false));
-  });
-  FARM_DECORATIVE_RING_3.forEach((c) => {
+  // Decorative side hexes beyond the 6 real plots — fades out a touch toward the
+  // outer edge, purely visual.
+  FARM_DECORATIVE_SIDES.forEach((c) => {
     const p = toScreen(c.q, c.r);
     const el = makeHexTile('locked-deco', size, p.x, p.y, false);
-    el.classList.add('ring-3');
+    if (Math.abs(c.q) >= 4) el.classList.add('ring-3');
     farmOverlayEl.appendChild(el);
   });
 
@@ -2984,15 +2898,6 @@ function cacheDom() {
   farmStageEl = document.getElementById('farm-stage');
   farmOverlayEl = document.getElementById('farm-overlay');
   farmBeesEl = document.getElementById('farm-bees');
-
-  // Bounded drag-to-pan over the territory map (see computeFarmLayout) — pointer
-  // events cover mouse + touch + pen in one listener set.
-  farmStageEl.addEventListener('pointerdown', onFarmPanStart);
-  farmStageEl.addEventListener('pointermove', onFarmPanMove);
-  farmStageEl.addEventListener('pointerup', onFarmPanEnd);
-  farmStageEl.addEventListener('pointercancel', onFarmPanEnd);
-  farmStageEl.addEventListener('pointerleave', onFarmPanEnd);
-  farmStageEl.addEventListener('click', onFarmStageClickCapture, true);
 
   questsContentEl = document.getElementById('quests-content');
   shopContentEl = document.getElementById('shop-content');
