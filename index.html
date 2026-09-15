@@ -1262,8 +1262,11 @@ const DAILY_POOL = [
   { type: 'honey',  target: 20, rewardHoney: 10, rewardXp: 10, label: 'Заработай {t} мёда сегодня' },
 ];
 
-// Farm territory: one hex ring (6 tiles) around the central hive. Independent of the puzzle's own hex grid/DIRS.
-const FARM_RING_ORDER = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]].map(([q, r]) => ({ q, r }));
+// Farm territory: a 7/7/5/5-row hex block (24 cells). Independent of the puzzle's
+// own hex grid/DIRS. Same 6 real, purchasable plots as always (still exactly
+// gameState.territory[0..5], same order/economy) — only their on-screen slot
+// within the new block changed; the other 18 cells are decorative filler.
+const FARM_GRID_ROWS = [7, 7, 5, 5];
 const FARM_STARTER_FLOWERS = { 0: '🌼', 3: '🌷' };
 const FARM_UNLOCK_BASE_COST = 60;
 const FARM_UNLOCK_COST_MULT = 1.6;
@@ -1289,8 +1292,10 @@ function createDefaultState(now) {
   now = now || Date.now();
   const q1 = makeRandomQuest([]);
   const q2 = makeRandomQuest([q1]);
-  const territory = FARM_RING_ORDER.map((pos, i) => ({
-    q: pos.q, r: pos.r,
+  // q/r kept only so old save data shapes still match — the new grid renders each
+  // tile by its array index (see FARM_TILE_CELLS), not by these coordinates.
+  const territory = [0, 1, 2, 3, 4, 5].map((i) => ({
+    q: 0, r: 0,
     unlocked: Object.prototype.hasOwnProperty.call(FARM_STARTER_FLOWERS, i),
     starterFlower: FARM_STARTER_FLOWERS[i] || null,
     decorId: null,
@@ -2189,38 +2194,169 @@ function enterApiary() {
   }
 }
 
-/* ============ Territory scene — real flat hexagons, positioned by axial math ============
-   Each ring tile (and the hive cell) is a CSS clip-path hexagon sized from the same
-   "size" value used to space them, so they always tile edge-to-edge with no art to
-   line up by hand. */
+/* ============ Territory scene — a 7/7/5/5 hex block ============
+   Every cell is a CSS clip-path hexagon sized from the same "size" value used to
+   space them, so they always tile edge-to-edge with no art to line up by hand.
+   Desktop reads the block as rows (wide, landscape-shaped); mobile transposes the
+   same 24 cells into columns instead (tall, portrait-shaped) — see farmScreenPos. */
 
-function farmAxialToPixel(q, r, size) {
-  const x = size * Math.sqrt(3) * (q + r / 2);
-  const y = size * 1.5 * r;
-  return { x: x, y: y };
+// One flat cell of the 7/7/5/5 block, in hex "size" units (size=1), before any
+// screen scaling/centering/orientation is applied.
+function farmGridToUnit(row, col, count) {
+  const sqrt3 = Math.sqrt(3);
+  const rowShift = (row % 2 === 1) ? (sqrt3 / 4) : -(sqrt3 / 4);
+  return { x: (col - (count - 1) / 2) * sqrt3 + rowShift, y: row * 1.5 };
 }
+
+const FARM_GRID_CELLS = [];
+FARM_GRID_ROWS.forEach((count, row) => {
+  for (let col = 0; col < count; col++) FARM_GRID_CELLS.push({ row: row, col: col, count: count });
+});
+const FARM_GRID_UNITS = FARM_GRID_CELLS.map((c) => {
+  const u = farmGridToUnit(c.row, c.col, c.count);
+  return { row: c.row, col: c.col, x: u.x, y: u.y };
+});
+// A cell's *center* can sit right at the edge of the block, but its drawn hexagon
+// reaches further out than that — sqrt(3)/2 sideways, 1 up/down at size=1 — so the
+// real bounding box (used for both fitting and centering) pads by that much.
+const FARM_GRID_MARGIN_X = Math.sqrt(3) / 2;
+const FARM_GRID_MARGIN_Y = 1;
+const FARM_GRID_MINX = Math.min(...FARM_GRID_UNITS.map((u) => u.x)) - FARM_GRID_MARGIN_X;
+const FARM_GRID_MAXX = Math.max(...FARM_GRID_UNITS.map((u) => u.x)) + FARM_GRID_MARGIN_X;
+const FARM_GRID_MINY = Math.min(...FARM_GRID_UNITS.map((u) => u.y)) - FARM_GRID_MARGIN_Y;
+const FARM_GRID_MAXY = Math.max(...FARM_GRID_UNITS.map((u) => u.y)) + FARM_GRID_MARGIN_Y;
+const FARM_GRID_CENTERX = (FARM_GRID_MINX + FARM_GRID_MAXX) / 2;
+const FARM_GRID_CENTERY = (FARM_GRID_MINY + FARM_GRID_MAXY) / 2;
+const FARM_GRID_HALF_W = (FARM_GRID_MAXX - FARM_GRID_MINX) / 2;
+const FARM_GRID_HALF_H = (FARM_GRID_MAXY - FARM_GRID_MINY) / 2;
+
+// Where the hive and the 6 real, purchasable plots sit within the 24-cell block —
+// picked (and checked numerically) so all 6 are exactly one hex-step from the hive,
+// in the same left/right/upper-left/etc. relationships the old ring used. Same
+// gameState.territory array, order and economy as always; only the on-screen slot
+// each one draws at has changed.
+const FARM_HIVE_CELL = { row: 1, col: 3 };
+const FARM_TILE_CELLS = [
+  { row: 1, col: 4 }, // was: right
+  { row: 0, col: 4 }, // was: upper-right
+  { row: 0, col: 3 }, // was: upper-left
+  { row: 1, col: 2 }, // was: left
+  { row: 2, col: 2 }, // was: lower-left
+  { row: 2, col: 3 }, // was: lower-right
+];
+const FARM_SPECIAL_CELL_KEYS = {};
+FARM_SPECIAL_CELL_KEYS[FARM_HIVE_CELL.row + ':' + FARM_HIVE_CELL.col] = true;
+FARM_TILE_CELLS.forEach((c) => { FARM_SPECIAL_CELL_KEYS[c.row + ':' + c.col] = true; });
 
 let farmLayout = null;
 let hivePopoverOpen = false;
+let territoryPopoverIndex = null;
+// Bounded drag-to-pan — mobile only (see computeFarmLayout's maxPanX/Y, which are
+// 0 whenever the block already fits, making the drag a no-op on desktop by
+// construction rather than by a separate on/off switch).
+let farmPanX = 0, farmPanY = 0;
+let farmPanDragging = false, farmPanMoved = false;
+let farmPanStartClientX = 0, farmPanStartClientY = 0, farmPanBaseX = 0, farmPanBaseY = 0;
 
 function computeFarmLayout() {
   if (!farmStageEl) return;
   const rect = farmStageEl.getBoundingClientRect();
   const cssWidth = Math.max(1, rect.width);
   const cssHeight = Math.max(1, rect.height);
-  // The decorative side hexes (see FARM_DECORATIVE_SIDES below) now count toward
-  // "must fit" too — no panning, no cropping: everything visible always scales to
-  // fit the container instead. They only extend sideways (r=0), so they push maxX
-  // out a lot without touching maxY, which is exactly the point.
-  const allPts = [{ q: 0, r: 0 }].concat(FARM_RING_ORDER).concat(FARM_DECORATIVE_SIDES).map((p) => farmAxialToPixel(p.q, p.r, 1));
-  const maxX = Math.max(0.001, ...allPts.map((p) => Math.abs(p.x)));
-  const maxY = Math.max(0.001, ...allPts.map((p) => Math.abs(p.y)));
-  // "size" doubles as the hex circumradius, so ring tiles spaced with farmAxialToPixel
-  // touch edge-to-edge exactly when each hex is drawn at width = size*sqrt(3), height = size*2.
-  const fitByWidth = (cssWidth * 0.85) / maxX;
-  const fitByHeight = (cssHeight * 0.58) / maxY;
-  const size = Math.max(16, Math.min(fitByWidth, fitByHeight, 52));
-  farmLayout = { originX: cssWidth / 2, originY: cssHeight * 0.46, size: size };
+  const isMobile = cssWidth < 720;
+  // Mobile shows the same 24 cells transposed ~90° (rows become columns — see
+  // farmScreenPos), so the extent that needs to fit the container's width/height
+  // swaps too: what was the block's height now has to fit sideways.
+  const halfW = isMobile ? FARM_GRID_HALF_H : FARM_GRID_HALF_W;
+  const halfH = isMobile ? FARM_GRID_HALF_W : FARM_GRID_HALF_H;
+  const fitByWidth = (cssWidth * 0.92) / (halfW * 2);
+  const fitByHeight = (cssHeight * 0.86) / (halfH * 2);
+  const minSize = isMobile ? 16 : 20;
+  const maxSize = isMobile ? 40 : 50;
+  const size = Math.max(minSize, Math.min(fitByWidth, fitByHeight, maxSize));
+  const renderedW = halfW * 2 * size;
+  const renderedH = halfH * 2 * size;
+  const maxPanX = Math.max(0, (renderedW - cssWidth * 0.92) / 2 + size * 0.5);
+  const maxPanY = Math.max(0, (renderedH - cssHeight * 0.86) / 2 + size * 0.5);
+  farmLayout = {
+    originX: cssWidth / 2, originY: cssHeight * 0.48, size: size, mobile: isMobile,
+    maxPanX: maxPanX, maxPanY: maxPanY,
+  };
+  farmPanX = 0;
+  farmPanY = 0;
+  applyFarmPanTransform();
+  if (farmStageEl) farmStageEl.classList.toggle('farm-stage--pannable', isMobile && (maxPanX > 0.5 || maxPanY > 0.5));
+}
+
+// Screen position for one grid cell. Desktop draws the block as-is (rows spread
+// sideways); mobile swaps which axis spreads and which stacks — a transpose of a
+// valid hex tiling is still a valid (mirrored) one, which is why makeHexTile can
+// just switch to a flat-top hexagon here instead of rotating anything.
+function farmScreenPos(unit) {
+  const size = farmLayout.size;
+  const ux = unit.x - FARM_GRID_CENTERX;
+  const uy = unit.y - FARM_GRID_CENTERY;
+  if (farmLayout.mobile) {
+    return { x: farmLayout.originX + uy * size, y: farmLayout.originY + ux * size };
+  }
+  return { x: farmLayout.originX + ux * size, y: farmLayout.originY + uy * size };
+}
+
+function clampFarmPan(x, y) {
+  const mx = farmLayout ? farmLayout.maxPanX : 0;
+  const my = farmLayout ? farmLayout.maxPanY : 0;
+  return { x: Math.max(-mx, Math.min(mx, x)), y: Math.max(-my, Math.min(my, y)) };
+}
+
+function applyFarmPanTransform() {
+  if (!farmOverlayEl) return;
+  farmOverlayEl.style.transform = (farmPanX || farmPanY) ? 'translate(' + farmPanX + 'px, ' + farmPanY + 'px)' : '';
+}
+
+function farmPanPointFromEvent(e) {
+  if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+function onFarmPanStart(e) {
+  if (!farmLayout || !farmLayout.mobile) return;
+  if (e.target.closest('.farm-hive-popover')) return; // never hijack a popover's own taps
+  const p = farmPanPointFromEvent(e);
+  farmPanDragging = true;
+  farmPanMoved = false;
+  farmPanStartClientX = p.x;
+  farmPanStartClientY = p.y;
+  farmPanBaseX = farmPanX;
+  farmPanBaseY = farmPanY;
+}
+
+function onFarmPanMove(e) {
+  if (!farmPanDragging) return;
+  const p = farmPanPointFromEvent(e);
+  const dx = p.x - farmPanStartClientX;
+  const dy = p.y - farmPanStartClientY;
+  if (Math.abs(dx) > 6 || Math.abs(dy) > 6) farmPanMoved = true;
+  if (!farmPanMoved) return;
+  if (e.cancelable) e.preventDefault();
+  const c = clampFarmPan(farmPanBaseX + dx, farmPanBaseY + dy);
+  farmPanX = c.x;
+  farmPanY = c.y;
+  applyFarmPanTransform();
+}
+
+function onFarmPanEnd() {
+  farmPanDragging = false;
+}
+
+// A drag that actually moved the map shouldn't also fire whatever cell sits under
+// the finger/cursor when it's released — this swallows that one synthetic click.
+function onFarmStageClickCapture(e) {
+  if (farmPanMoved) {
+    e.stopPropagation();
+    e.preventDefault();
+    farmPanMoved = false;
+  }
 }
 
 function showFarmToast(text) {
@@ -2232,10 +2368,24 @@ function showFarmToast(text) {
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 1800);
 }
 
-function onHiveTap() { hivePopoverOpen = !hivePopoverOpen; renderFarmOverlay(); }
+function onHiveTap() {
+  hivePopoverOpen = !hivePopoverOpen;
+  territoryPopoverIndex = null;
+  renderFarmOverlay();
+}
 
+// Tapping a locked plot just opens/closes its price popover (see renderFarmOverlay)
+// — the actual purchase only happens from that popover's own button, via the same
+// existing unlockTerritoryTile/territoryUnlockCost as always.
 function onTerritoryTap(index) {
+  hivePopoverOpen = false;
+  territoryPopoverIndex = (territoryPopoverIndex === index) ? null : index;
+  renderFarmOverlay();
+}
+
+function onTerritoryBuyConfirm(index) {
   if (unlockTerritoryTile(gameState, index)) {
+    territoryPopoverIndex = null;
     saveGameState();
     renderApiaryScreen();
   } else {
@@ -2258,13 +2408,15 @@ const FLOWER_DEFS = {
 const FLOWER_ORDER = ['tulip', 'clover', 'lavender', 'buttercup', 'daisy', 'dandelion', 'bluebell', 'wild_rose'];
 function flowerIconForTile(index) { return FLOWER_DEFS[FLOWER_ORDER[index % FLOWER_ORDER.length]].icon; }
 
-// Builds one flat hexagon cell (pointy-top clip-path) sized/positioned from the
-// same axial "size" used to space the whole ring, so cells always tile edge-to-edge.
-function makeHexTile(kind, size, x, y, clickable) {
+// Builds one flat hexagon cell sized/positioned from the same "size" used to space
+// the whole block, so cells always tile edge-to-edge. Desktop uses a pointy-top
+// hexagon (points up/down); mobile's transposed layout uses the flat-top twin
+// (points left/right) at swapped width/height — see the CSS for both shapes.
+function makeHexTile(kind, size, x, y, clickable, flat) {
   const wrap = document.createElement('div');
-  wrap.className = 'hex-tile hex-tile--' + kind + (clickable ? ' hex-tile--clickable' : '');
-  const w = Math.round(size * Math.sqrt(3));
-  const h = size * 2;
+  wrap.className = 'hex-tile hex-tile--' + kind + (clickable ? ' hex-tile--clickable' : '') + (flat ? ' hex-tile--flat' : '');
+  const w = flat ? Math.round(size * 2) : Math.round(size * Math.sqrt(3));
+  const h = flat ? Math.round(size * Math.sqrt(3)) : Math.round(size * 2);
   wrap.style.width = w + 'px';
   wrap.style.height = h + 'px';
   wrap.style.left = x + 'px';
@@ -2272,12 +2424,103 @@ function makeHexTile(kind, size, x, y, clickable) {
   return wrap;
 }
 
-// Decorative "the map keeps going" hexes: only sideways (r=0), no top/bottom row
-// and no hexagonal silhouette — per feedback, the field itself shouldn't look
-// hexagon-shaped. Not clickable, no game state, just dressing; included in
-// computeFarmLayout's own fit math above so they always scale to fit too.
-const FARM_DECORATIVE_SIDES = [];
-[2, 3, 4].forEach((q) => { FARM_DECORATIVE_SIDES.push({ q: q, r: 0 }, { q: -q, r: 0 }); });
+function renderFarmOverlay() {
+  if (!farmLayout || !gameState) return;
+  farmOverlayEl.innerHTML = '';
+  const size = farmLayout.size;
+  const flat = farmLayout.mobile;
+
+  // Every grid cell that isn't the hive or one of the 6 real plots is decorative
+  // filler, just completing the 7/7/5/5 shape — not clickable, no game state.
+  FARM_GRID_CELLS.forEach((cell) => {
+    if (FARM_SPECIAL_CELL_KEYS[cell.row + ':' + cell.col]) return;
+    const p = farmScreenPos(farmGridToUnit(cell.row, cell.col, cell.count));
+    farmOverlayEl.appendChild(makeHexTile('locked-deco', size, p.x, p.y, false, flat));
+  });
+
+  gameState.territory.forEach((tile, i) => {
+    const cell = FARM_TILE_CELLS[i];
+    const p = farmScreenPos(farmGridToUnit(cell.row, cell.col, FARM_GRID_ROWS[cell.row]));
+    if (!tile.unlocked) {
+      const el = makeHexTile('locked', size, p.x, p.y, true, flat);
+      el.addEventListener('click', () => onTerritoryTap(i));
+      farmOverlayEl.appendChild(el);
+    } else if (tile.starterFlower || tile.decorId) {
+      const el = makeHexTile('planted', size, p.x, p.y, false, flat);
+      el.innerHTML = '<img class="hex-tile-icon" src="' + flowerIconForTile(i) + '" alt="">';
+      farmOverlayEl.appendChild(el);
+    } else {
+      // Unlocked and nothing planted yet — kept deliberately bare (see the CSS
+      // comment on .hex-tile--empty): just the hex outline, nothing else.
+      farmOverlayEl.appendChild(makeHexTile('empty', size, p.x, p.y, false, flat));
+    }
+  });
+
+  const hp = farmScreenPos(farmGridToUnit(FARM_HIVE_CELL.row, FARM_HIVE_CELL.col, FARM_GRID_ROWS[FARM_HIVE_CELL.row]));
+  const hiveBase = makeHexTile('hive', size, hp.x, hp.y, true, flat);
+  hiveBase.addEventListener('click', onHiveTap);
+  farmOverlayEl.appendChild(hiveBase);
+
+  // The hive illustration itself is a separate, unclipped layer so it can pop
+  // slightly bigger than its hex cell — a small "hero" accent, not a grid tile —
+  // and it never needs to change shape/orientation the way the tiles do.
+  const hiveImg = document.createElement('img');
+  hiveImg.className = 'farm-hive-img';
+  hiveImg.src = 'assets/hive.png';
+  hiveImg.alt = '';
+  const hiveSize = Math.round(size * 1.7);
+  hiveImg.style.left = hp.x + 'px';
+  hiveImg.style.top = hp.y + 'px';
+  hiveImg.style.width = hiveSize + 'px';
+  hiveImg.style.height = hiveSize + 'px';
+  hiveImg.addEventListener('click', onHiveTap);
+  farmOverlayEl.appendChild(hiveImg);
+
+  if (hivePopoverOpen) {
+    const afford = gameState.honey >= gameState.hive.upgradeCost;
+    const pop = document.createElement('div');
+    pop.className = 'farm-hive-popover';
+    pop.style.left = hp.x + 'px';
+    pop.style.top = (hp.y - size * 0.95) + 'px';
+    pop.innerHTML =
+      '<div class="fhp-title">Улей · уровень ' + gameState.hive.level + '</div>' +
+      '<div class="fhp-rate">+5% мёда за линию за каждый уровень (сейчас +' + Math.round((gameState.hive.level - 1) * 5) + '%)</div>' +
+      '<button class="small-action-btn" id="hive-upgrade-btn"' + (afford ? '' : ' disabled') + '>Улучшить · ' + gameState.hive.upgradeCost + '<img class="inline-icon" src="assets/icon_honey.png" alt=""></button>';
+    farmOverlayEl.appendChild(pop);
+    const upBtn = document.getElementById('hive-upgrade-btn');
+    if (upBtn) upBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (upgradeHive(gameState)) { saveGameState(); renderApiaryScreen(); }
+    });
+  }
+
+  // Price only ever shows here, on demand — never printed under the cell itself.
+  if (territoryPopoverIndex !== null) {
+    const tile = gameState.territory[territoryPopoverIndex];
+    if (tile && !tile.unlocked) {
+      const cell = FARM_TILE_CELLS[territoryPopoverIndex];
+      const p = farmScreenPos(farmGridToUnit(cell.row, cell.col, FARM_GRID_ROWS[cell.row]));
+      const cost = territoryUnlockCost(gameState);
+      const afford = gameState.honey >= cost;
+      const pop = document.createElement('div');
+      pop.className = 'farm-hive-popover';
+      pop.style.left = p.x + 'px';
+      pop.style.top = (p.y - size * 0.95) + 'px';
+      pop.innerHTML =
+        '<div class="fhp-title">Новая территория</div>' +
+        '<div class="fhp-rate">Стоимость: ' + cost + ' мёда</div>' +
+        '<button class="small-action-btn" id="territory-buy-btn"' + (afford ? '' : ' disabled') + '>Купить · ' + cost + '<img class="inline-icon" src="assets/icon_honey.png" alt=""></button>';
+      farmOverlayEl.appendChild(pop);
+      const buyBtn = document.getElementById('territory-buy-btn');
+      if (buyBtn) buyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onTerritoryBuyConfirm(territoryPopoverIndex);
+      });
+    } else {
+      territoryPopoverIndex = null;
+    }
+  }
+}
 
 function renderFarmOverlay() {
   if (!farmLayout || !gameState) return;
