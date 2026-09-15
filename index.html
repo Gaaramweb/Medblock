@@ -348,13 +348,18 @@
     position: relative; flex: 1; min-height: 0; margin: 2px 8px; border-radius: 18px; overflow: hidden;
   }
 
-  /* -- Flat hex tile (pointy-top, matches farmAxialToPixel's axial layout) -- */
+  /* -- Flat hex tile: pointy-top on desktop (points up/down); mobile's transposed
+     block uses the flat-top twin instead (points left/right, via .hex-tile--flat) -- */
   .hex-tile {
     position: absolute; transform: translate(-50%, -50%);
     display: flex; align-items: center; justify-content: center;
     clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     box-shadow: inset 0 -6px 0 rgba(0,0,0,0.14), inset 0 2px 0 rgba(255,255,255,0.25);
     transition: transform 0.12s cubic-bezier(.34,1.56,.64,1);
+  }
+  .hex-tile--flat {
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+    box-shadow: inset -6px 0 0 rgba(0,0,0,0.14), inset 2px 0 0 rgba(255,255,255,0.25);
   }
   .hex-tile--clickable { cursor: pointer; pointer-events: auto; }
   .hex-tile--clickable:active { transform: translate(-50%, -50%) scale(0.93); }
@@ -367,10 +372,10 @@
     background-image: url('assets/hex_locked.png');
     background-size: contain; background-position: center; background-repeat: no-repeat;
   }
-  /* Ring tiles tessellate edge-to-edge with zero gaps, so any fill here — even the
-     previous ~38% tint — sits in front of the shared #bg-layer PNG for the entire
-     cell. After a plot is bought/planted it now keeps only its hex outline: no fill
-     at all, so the background is what actually shows inside the border, not a tint. */
+  /* Cells tessellate edge-to-edge with zero gaps, so any fill here sits in front of
+     the shared #bg-layer PNG for the whole cell. After a plot is bought/planted it
+     keeps only its hex outline: no fill at all, so the background is what actually
+     shows inside the border, not a tint or a second backdrop. */
   .hex-tile--empty {
     background: transparent;
     box-shadow: inset 0 0 0 2px rgba(255,207,92,0.55);
@@ -383,29 +388,22 @@
   .hex-tile--hive:active { transform: translate(-50%, -50%) scale(0.95); }
   .hex-tile-icon { width: 46%; height: 46%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.25)); }
   .hex-tile--hive .hex-tile-icon { width: 58%; height: 58%; }
-  .hex-tile-tag {
-    position: absolute; bottom: -11px; left: 50%; transform: translate(-50%, 0);
-    display: flex; align-items: center; gap: 3px;
-    font-size: 0.56rem; font-weight: 900; color: var(--cream);
-    background: var(--wood-dark); padding: 2px 6px 3px; border-radius: 999px; white-space: nowrap;
-    box-shadow: 0 2px 0 rgba(0,0,0,0.2); pointer-events: none;
-  }
-  .hex-tile-tag img { width: 11px; height: 11px; object-fit: contain; }
 
-  /* Decorative outer rings — same locked-hex art, further out from the 6 real
-     unlockable plots, purely to sell "the map keeps going". Not clickable, not
-     game state — just background dressing, faded a touch and clipped by
-     .farm-stage's overflow so it never claims the whole screen. */
+  /* Decorative filler — the rest of the 7/7/5/5 block that isn't the hive or one of
+     the 6 real plots. Just a faint outline, no fill and no hex_locked.png here: with
+     18 of these filling out the block, giving them the same opaque badge look as a
+     real locked plot would bury the shared background under a wall of grey tiles —
+     exactly the "background doesn't show after all" complaint. This keeps them
+     honeycomb-shaped but see-through, so the real plots are what actually stand out. */
   .hex-tile--locked-deco {
-    background-color: var(--hex-locked-deep);
-    background-image: url('assets/hex_locked.png');
-    background-size: contain; background-position: center; background-repeat: no-repeat;
-    opacity: 0.6; pointer-events: none;
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.16);
+    pointer-events: none;
   }
-  .hex-tile--locked-deco.ring-3 { opacity: 0.4; }
 
   /* Hive illustration — an unclipped accent layered on top of .hex-tile--hive so it
-     can read as the "hero" of the map without being boxed in by the hex clip-path. */
+     can read as the "hero" of the map without being boxed in by the hex clip-path.
+     Never changes shape/orientation the way the tiles do. */
   .farm-hive-img {
     position: absolute; transform: translate(-50%, -58%);
     pointer-events: auto; cursor: pointer; object-fit: contain; z-index: 3;
@@ -414,6 +412,10 @@
   }
   .farm-hive-img:active { transform: translate(-50%, -58%) scale(0.94); }
   .farm-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  /* Only ever actually draggable on mobile, and only once the block doesn't already
+     fit (see computeFarmLayout's maxPanX/Y) — desktop never gets this class. */
+  .farm-stage--pannable { cursor: grab; touch-action: none; }
+  .farm-stage--pannable:active { cursor: grabbing; }
   .farm-bees { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
   .farm-bee { position: absolute; width: 30px; height: 30px; will-change: left, top, transform; }
   .farm-bee img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -2522,90 +2524,6 @@ function renderFarmOverlay() {
   }
 }
 
-function renderFarmOverlay() {
-  if (!farmLayout || !gameState) return;
-  farmOverlayEl.innerHTML = '';
-  const size = farmLayout.size;
-  const toScreen = (q, r) => {
-    const p = farmAxialToPixel(q, r, size);
-    return { x: farmLayout.originX + p.x, y: farmLayout.originY + p.y };
-  };
-
-  // Decorative side hexes beyond the 6 real plots — fades out a touch toward the
-  // outer edge, purely visual.
-  FARM_DECORATIVE_SIDES.forEach((c) => {
-    const p = toScreen(c.q, c.r);
-    const el = makeHexTile('locked-deco', size, p.x, p.y, false);
-    if (Math.abs(c.q) >= 4) el.classList.add('ring-3');
-    farmOverlayEl.appendChild(el);
-  });
-
-  gameState.territory.forEach((tile, i) => {
-    const p = toScreen(tile.q, tile.r);
-    if (!tile.unlocked) {
-      const cost = territoryUnlockCost(gameState);
-      const el = makeHexTile('locked', size, p.x, p.y, true);
-      el.innerHTML = '<div class="hex-tile-tag">🍯<span>' + cost + '</span></div>';
-      el.addEventListener('click', () => onTerritoryTap(i));
-      farmOverlayEl.appendChild(el);
-    } else if (tile.starterFlower || tile.decorId) {
-      const el = makeHexTile('planted', size, p.x, p.y, false);
-      el.innerHTML = '<img class="hex-tile-icon" src="' + flowerIconForTile(i) + '" alt="">';
-      farmOverlayEl.appendChild(el);
-    } else {
-      // Unlocked and nothing planted yet. icon_honey.png is an opaque 32x32 PNG
-      // (solid square background, no alpha) — fine on the cream chips it was
-      // designed for, but it showed up as a jarring white box sitting on this
-      // translucent hex fill. Rather than swap the shared asset, this state just
-      // shows no icon at all: the tile keeps its hex shape/fill/position and tag,
-      // with nothing opaque floating on top of it (purely visual flavor either way;
-      // the "60m" tag is not a real timer).
-      const el = makeHexTile('empty', size, p.x, p.y, false);
-      el.innerHTML = '<div class="hex-tile-tag">60М МЁД</div>';
-      farmOverlayEl.appendChild(el);
-    }
-  });
-
-  const hp = toScreen(0, 0);
-  const hiveBase = makeHexTile('hive', size, hp.x, hp.y, true);
-  hiveBase.addEventListener('click', onHiveTap);
-  farmOverlayEl.appendChild(hiveBase);
-
-  // The hive illustration itself is a separate, unclipped layer so it can pop
-  // slightly bigger than its hex cell — a small "hero" accent, not a grid tile.
-  const hiveImg = document.createElement('img');
-  hiveImg.className = 'farm-hive-img';
-  hiveImg.src = 'assets/hive.png';
-  hiveImg.alt = '';
-  const hiveSize = Math.round(size * 1.7);
-  hiveImg.style.left = hp.x + 'px';
-  hiveImg.style.top = hp.y + 'px';
-  hiveImg.style.width = hiveSize + 'px';
-  hiveImg.style.height = hiveSize + 'px';
-  hiveImg.addEventListener('click', onHiveTap);
-  farmOverlayEl.appendChild(hiveImg);
-
-  if (hivePopoverOpen) {
-    const afford = gameState.honey >= gameState.hive.upgradeCost;
-    const pop = document.createElement('div');
-    pop.className = 'farm-hive-popover';
-    pop.style.left = hp.x + 'px';
-    pop.style.top = (hp.y - size * 0.95) + 'px';
-    pop.innerHTML =
-      '<div class="fhp-title">Улей · уровень ' + gameState.hive.level + '</div>' +
-      '<div class="fhp-rate">+5% мёда за линию за каждый уровень (сейчас +' + Math.round((gameState.hive.level - 1) * 5) + '%)</div>' +
-      '<button class="small-action-btn" id="hive-upgrade-btn"' + (afford ? '' : ' disabled') + '>Улучшить · ' + gameState.hive.upgradeCost + '<img class="inline-icon" src="assets/icon_honey.png" alt=""></button>';
-    farmOverlayEl.appendChild(pop);
-    const upBtn = document.getElementById('hive-upgrade-btn');
-    if (upBtn) upBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (upgradeHive(gameState)) { saveGameState(); renderApiaryScreen(); }
-    });
-  }
-}
-
-// Local-only "rating" — not a league, just a single growing number for the top-left
-// badge, blended from progress you've already made (no new save fields needed).
 function computeRating(state) {
   const unlockedRing = state.territory.filter((t) => t.unlocked).length;
   return Math.round(
@@ -2750,6 +2668,7 @@ function renderApiaryScreen() {
   updateNavBadges();
   renderCalendarPanelPreview();
   hivePopoverOpen = false;
+  territoryPopoverIndex = null;
   computeFarmLayout();
   renderFarmOverlay();
   renderFarmBees();
@@ -3141,6 +3060,15 @@ function cacheDom() {
   farmStageEl = document.getElementById('farm-stage');
   farmOverlayEl = document.getElementById('farm-overlay');
   farmBeesEl = document.getElementById('farm-bees');
+
+  // Mobile-only drag-to-pan (see computeFarmLayout) — pointer events cover mouse +
+  // touch + pen in one listener set; each handler no-ops itself on desktop.
+  farmStageEl.addEventListener('pointerdown', onFarmPanStart);
+  farmStageEl.addEventListener('pointermove', onFarmPanMove);
+  farmStageEl.addEventListener('pointerup', onFarmPanEnd);
+  farmStageEl.addEventListener('pointercancel', onFarmPanEnd);
+  farmStageEl.addEventListener('pointerleave', onFarmPanEnd);
+  farmStageEl.addEventListener('click', onFarmStageClickCapture, true);
 
   questsContentEl = document.getElementById('quests-content');
   shopContentEl = document.getElementById('shop-content');
