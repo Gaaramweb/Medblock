@@ -1098,7 +1098,7 @@ function generateBoardCells(radius) {
 function createBoard(radius) {
   const cells = generateBoardCells(radius);
   const map = new Map();
-  for (const { q, r } of cells) map.set(cellKey(q, r), { q, r, occupied: false });
+  for (const { q, r } of cells) map.set(cellKey(q, r), { q, r, occupied: false, honey: false });
   return { map, cells, radius };
 }
 
@@ -1126,9 +1126,14 @@ function canPlace(board, shapeCells, offQ, offR) {
   return true;
 }
 
-function placeShape(board, shapeCells, offQ, offR) {
-  for (const [dq, dr] of shapeCells) {
-    board.map.get(cellKey(offQ + dq, offR + dr)).occupied = true;
+function placeShape(board, shapeCells, offQ, offR, honeyIndex) {
+  for (let i = 0; i < shapeCells.length; i++) {
+    const [dq, dr] = shapeCells[i];
+    const cell = board.map.get(cellKey(offQ + dq, offR + dr));
+    cell.occupied = true;
+    // Explicitly set false too, not just true — otherwise a cell could keep
+    // showing as a honey block from an earlier piece that no longer applies.
+    cell.honey = (i === honeyIndex);
   }
 }
 
@@ -1891,7 +1896,7 @@ function traceRoundRect(c, x, y, w, h, r) {
   c.closePath();
 }
 
-function drawCell(c, cx, cy, size, kind, fxProgress) {
+function drawCell(c, cx, cy, size, kind, fxProgress, honey) {
   if (kind === 'empty') {
     traceHex(c, cx, cy, size * 0.94);
     const g = c.createLinearGradient(cx, cy - size, cx, cy + size);
@@ -1905,13 +1910,21 @@ function drawCell(c, cx, cy, size, kind, fxProgress) {
   } else if (kind === 'filled') {
     traceHex(c, cx, cy, size * 0.94);
     const g = c.createLinearGradient(cx - size, cy - size, cx + size, cy + size);
-    g.addColorStop(0, '#FFD873');
-    g.addColorStop(0.55, '#FFB627');
-    g.addColorStop(1, '#DE800C');
+    // "Медовый блок": a richer amber-red tone + a brighter rim, so a piece with
+    // one marked cell reads as special at a glance, in the tray and on the board.
+    if (honey) {
+      g.addColorStop(0, '#FFE08A');
+      g.addColorStop(0.5, '#FF9A1F');
+      g.addColorStop(1, '#C2540A');
+    } else {
+      g.addColorStop(0, '#FFD873');
+      g.addColorStop(0.55, '#FFB627');
+      g.addColorStop(1, '#DE800C');
+    }
     c.fillStyle = g;
     c.fill();
-    c.lineWidth = Math.max(1, size * 0.07);
-    c.strokeStyle = '#A6620A';
+    c.lineWidth = Math.max(1, size * (honey ? 0.1 : 0.07));
+    c.strokeStyle = honey ? '#FFEFB0' : '#A6620A';
     c.stroke();
     c.save();
     traceHex(c, cx, cy, size * 0.94);
@@ -1956,8 +1969,8 @@ function drawBoard(now) {
   for (const cell0 of gameBoard.cells) {
     const q = cell0.q, r = cell0.r;
     const p = axialToPixel(q, r, boardHexSize);
-    const occupied = gameBoard.map.get(cellKey(q, r)).occupied;
-    drawCell(ctx, boardOriginX + p.x, boardOriginY + p.y, boardHexSize, occupied ? 'filled' : 'empty');
+    const boardCell = gameBoard.map.get(cellKey(q, r));
+    drawCell(ctx, boardOriginX + p.x, boardOriginY + p.y, boardHexSize, boardCell.occupied ? 'filled' : 'empty', undefined, boardCell.honey);
   }
 
   if (drag && drag.active && drag.candidate) {
@@ -1981,10 +1994,10 @@ function drawBoard(now) {
 
 function drawPieceCluster(shape, cx, cy, size) {
   const offX = shape.centerOffsetX * size, offY = shape.centerOffsetY * size;
-  for (const cell2 of shape.cells) {
-    const dq = cell2[0], dr = cell2[1];
+  for (let i = 0; i < shape.cells.length; i++) {
+    const dq = shape.cells[i][0], dr = shape.cells[i][1];
     const p = axialToPixel(dq, dr, size);
-    drawCell(ctx, cx + p.x - offX, cy + p.y - offY, size, 'filled');
+    drawCell(ctx, cx + p.x - offX, cy + p.y - offY, size, 'filled', undefined, i === shape.honeyIndex);
   }
 }
 
@@ -2020,10 +2033,10 @@ function drawDraggedPiece() {
   const refPixel = axialToPixel(ref[0], ref[1], size);
   const anchorX = drag.pointerX;
   const anchorY = drag.pointerY - drag.liftOffset;
-  for (const cell3 of shape.cells) {
-    const dq = cell3[0], dr = cell3[1];
+  for (let i = 0; i < shape.cells.length; i++) {
+    const dq = shape.cells[i][0], dr = shape.cells[i][1];
     const p = axialToPixel(dq, dr, size);
-    drawCell(ctx, anchorX + (p.x - refPixel.x), anchorY + (p.y - refPixel.y), size, 'filled');
+    drawCell(ctx, anchorX + (p.x - refPixel.x), anchorY + (p.y - refPixel.y), size, 'filled', undefined, i === shape.honeyIndex);
   }
 }
 
@@ -2037,10 +2050,10 @@ function drawSnapBack(now) {
   const cx = snapBack.fromX + (toSlot.cx - snapBack.fromX) * e;
   const cy = snapBack.fromY + (toSlot.cy - snapBack.fromY) * e;
   const offX = shape.centerOffsetX * size, offY = shape.centerOffsetY * size;
-  for (const cell4 of shape.cells) {
-    const dq = cell4[0], dr = cell4[1];
+  for (let i = 0; i < shape.cells.length; i++) {
+    const dq = shape.cells[i][0], dr = shape.cells[i][1];
     const p = axialToPixel(dq, dr, size);
-    drawCell(ctx, cx + p.x - offX, cy + p.y - offY, size, 'filled');
+    drawCell(ctx, cx + p.x - offX, cy + p.y - offY, size, 'filled', undefined, i === shape.honeyIndex);
   }
   if (t >= 1) snapBack = null;
 }
@@ -2252,11 +2265,18 @@ function showComboBanner(linesCleared) {
   comboBannerTimer = setTimeout(function () { comboBanner.classList.add('hidden'); }, 1250);
 }
 
+// "Медовый блок" — тематическая механика из ТЗ (спецблок «мёд», доп. очистка
+// соседних сот). Roughly 1 in 5-6 pieces carries one — a design choice, easy to
+// retune via this one constant; not a value from any existing game data.
+const HONEY_BLOCK_CHANCE = 0.18;
+
 function dealNewBatch() {
   let candidates = WEIGHTED_POOL.filter((s) => canPlaceAnywhere(gameBoard, s.cells));
   if (candidates.length === 0) candidates = WEIGHTED_POOL;
   for (let i = 0; i < 3; i++) {
-    trayPieces[i] = candidates[Math.floor(Math.random() * candidates.length)];
+    const base = candidates[Math.floor(Math.random() * candidates.length)];
+    const honeyIndex = Math.random() < HONEY_BLOCK_CHANCE ? Math.floor(Math.random() * base.cells.length) : -1;
+    trayPieces[i] = Object.assign({}, base, { honeyIndex: honeyIndex });
   }
 }
 
@@ -2266,14 +2286,34 @@ function updateRerollButton() {
 }
 
 function commitPlacement(slotIndex, shape, originQ, originR) {
-  placeShape(gameBoard, shape.cells, originQ, originR);
+  placeShape(gameBoard, shape.cells, originQ, originR, shape.honeyIndex);
   trayPieces[slotIndex] = null;
 
   const full = findFullLines(gameBoard, LINES);
   if (full.length > 0) {
+    // "Медовый блок": a honey-marked cell caught in a completed line also pops
+    // its neighbors (reusing the same clearBoardCellAt/neighborsOf the bomb
+    // booster already uses) — read the honey flags before clearLines() wipes
+    // them, then run the bonus clear after, so it never double-counts a cell
+    // the line itself already cleared.
+    const honeySpots = [];
+    for (const line of full) for (const c of line) {
+      const cell = gameBoard.map.get(cellKey(c.q, c.r));
+      if (cell && cell.honey) honeySpots.push({ q: c.q, r: c.r });
+    }
+
     const clearedKeys = clearLines(gameBoard, full);
     const linesCleared = full.length;
-    const cellsCleared = clearedKeys.size;
+    let cellsCleared = clearedKeys.size;
+
+    let honeyBonusCells = 0;
+    for (const spot of honeySpots) {
+      for (const n of neighborsOf(spot.q, spot.r)) {
+        if (clearBoardCellAt(n.q, n.r)) honeyBonusCells++;
+      }
+    }
+    cellsCleared += honeyBonusCells;
+
     const comboMult = linesCleared;
     const hiveMult = 1 + (gameState.hive.level - 1) * 0.05;
     const beeTierMult = 1 + currentBeeTier(gameState).bonusPct / 100;
@@ -2300,6 +2340,7 @@ function commitPlacement(slotIndex, shape, originQ, originR) {
       cnt++;
     }
     spawnFloatingText('+' + honeyGain + ' 🍯', sumX / cnt, sumY / cnt);
+    if (honeyBonusCells > 0) spawnFloatingText('Медовый блок! 🍯✨', sumX / cnt, sumY / cnt - layout.boardHexSize * 1.4);
     if (linesCleared >= 2) showComboBanner(linesCleared);
   }
 
