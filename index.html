@@ -363,14 +363,20 @@
   }
   .hex-tile--clickable { cursor: pointer; pointer-events: auto; }
   .hex-tile--clickable:active { transform: translate(-50%, -50%) scale(0.93); }
-  /* The lock art (hex_locked.png) is already a full flat hex badge with its own
-     bevel + padlock baked in, so it's used as the tile's fill. contain (not cover)
-     so the whole badge always shows — cover would crop its edges whenever the PNG's
-     own aspect ratio doesn't exactly match this hex's. */
+  /* The lock art (hex_locked.png) is close to square, but a pointy-top hex cell is
+     noticeably taller than wide — plain `contain` fits it by width and leaves ~32%
+     of empty cell showing above/below (the fallback colour), making the badge look
+     small/washed out. Zooming in past 100% closes that gap; the crop it costs is
+     just the badge's own outer bevel, not the padlock itself, which is centered.
+     Mobile's flat-top cell is already close to the art's own aspect ratio, so it
+     keeps plain contain (see the override below) — no gap to compensate for there. */
   .hex-tile--locked {
     background-color: var(--hex-locked-deep);
     background-image: url('assets/hex_locked.png');
-    background-size: contain; background-position: center; background-repeat: no-repeat;
+    background-size: 135%; background-position: center; background-repeat: no-repeat;
+  }
+  .hex-tile--flat.hex-tile--locked {
+    background-size: contain;
   }
   /* Cells tessellate edge-to-edge with zero gaps, so any fill here sits in front of
      the shared #bg-layer PNG for the whole cell. After a plot is bought/planted it
