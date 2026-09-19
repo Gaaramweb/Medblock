@@ -842,6 +842,26 @@
   .primary-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #a85e08, 0 4px 8px rgba(0,0,0,0.25); }
   .primary-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 
+  /* A watch-an-ad bonus action sits visually a step below the primary "continue"
+     button — same shape/rhythm, less visual weight, so it reads as optional. */
+  .secondary-btn {
+    display: block; margin: 0 auto 10px;
+    background: linear-gradient(160deg, var(--farm-sky), var(--farm-sky-deep));
+    color: var(--cream);
+    border: none;
+    border-radius: 999px;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 0.88rem;
+    padding: 10px 22px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #2c6a86, 0 8px 14px rgba(0,0,0,0.22);
+    transition: transform 0.08s ease;
+  }
+  .secondary-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #2c6a86, 0 3px 6px rgba(0,0,0,0.2); }
+  .secondary-btn:disabled { opacity: 0.55; cursor: default; }
+  .secondary-btn.hidden { display: none; }
+
   .results-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
   .result {
     flex: 1 1 40%;
@@ -1047,6 +1067,7 @@
       <div class="result"><span class="result-value" id="result-combo">×0</span><span class="result-label">лучшее комбо</span></div>
     </div>
     <p id="record-note" class="record-note hidden">Новый рекорд сессии! 🎉</p>
+    <button id="double-reward-btn" class="secondary-btn hidden">Смотреть рекламу · x2 мёд</button>
     <button id="apiary-btn" class="primary-btn">На пасеку</button>
   </div>
 </div>
@@ -1563,6 +1584,170 @@ function claimDailyLogin(state, now) {
   return { day: day, honeyGain: honeyGain, grantedGoldenFlower: grantedGoldenFlower };
 }
 
+/* ============ Platform adapter (Yandex Games SDK / VK Bridge) ============
+   Everything platform-specific lives here so the rest of the game never touches
+   YaGames/vkBridge directly. Detects which platform (if any) it's running on,
+   loads that SDK, and degrades to "no platform" — local-only, no ads, no cloud
+   save — everywhere else, including this same file opened plainly (GitHub
+   Pages, a local file, etc). Nothing here changes puzzle/economy logic; it only
+   adds ready/ad/save hooks the rest of the game calls into. */
+const Platform = (function () {
+  let kind = 'none'; // 'yandex' | 'vk' | 'none'
+  let ysdk = null;
+  let player = null;
+  let readyCalled = false;
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('script load failed: ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  function withTimeout(promise, ms) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+    ]);
+  }
+
+  // VK Mini Apps always launch with these query params — a reliable signal
+  // Yandex doesn't have an equivalent of, which is why VK is detected up front
+  // and Yandex is simply attempted-with-timeout instead (see init()).
+  function looksLikeVk() {
+    try {
+      const p = new URLSearchParams(location.search);
+      return p.has('vk_app_id') || p.has('vk_user_id');
+    } catch (e) { return false; }
+  }
+
+  async function initYandex() {
+    await loadScript('https://sdk.games.s3.yandex.net/sdk.js');
+    if (!window.YaGames) throw new Error('YaGames missing after script load');
+    ysdk = await withTimeout(window.YaGames.init(), 4000);
+    kind = 'yandex';
+    try { player = await ysdk.getPlayer(); } catch (e) { player = null; }
+  }
+
+  async function initVk() {
+    await loadScript('https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js');
+    if (!window.vkBridge) throw new Error('vkBridge missing after script load');
+    await window.vkBridge.send('VKWebAppInit');
+    kind = 'vk';
+  }
+
+  // Never rejects — a broken/slow/missing SDK just means "play locally, no
+  // ads, no cloud save" instead of a stuck loading screen.
+  async function init() {
+    if (looksLikeVk()) {
+      try { await initVk(); } catch (e) { kind = 'none'; }
+      return;
+    }
+    try { await initYandex(); } catch (e) { kind = 'none'; ysdk = null; player = null; }
+  }
+
+  function notifyReady() {
+    if (readyCalled) return;
+    readyCalled = true;
+    if (kind === 'yandex' && ysdk) {
+      try { ysdk.features.LoadingAPI?.ready(); } catch (e) { /* ignore */ }
+    }
+  }
+
+  // Yandex uses these to measure actual play time (recommendations/metrics) —
+  // no visible effect in-game either way, and a no-op outside Yandex.
+  function gameplayStart() {
+    if (kind === 'yandex' && ysdk) { try { ysdk.features.GameplayAPI?.start(); } catch (e) { /* ignore */ } }
+  }
+  function gameplayStop() {
+    if (kind === 'yandex' && ysdk) { try { ysdk.features.GameplayAPI?.stop(); } catch (e) { /* ignore */ } }
+  }
+
+  // Fullscreen (interstitial) ad. onDone always fires, with whether an
+  // impression actually happened — callers don't need their own fallback path.
+  function showInterstitial(onDone) {
+    if (kind === 'yandex' && ysdk) {
+      gameplayStop();
+      ysdk.adv.showFullscreenAdv({
+        callbacks: {
+          onClose: (wasShown) => { gameplayStart(); if (onDone) onDone(!!wasShown); },
+          onError: () => { gameplayStart(); if (onDone) onDone(false); },
+        },
+      });
+      return;
+    }
+    if (kind === 'vk' && window.vkBridge) {
+      window.vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
+        .then((r) => { if (onDone) onDone(!!(r && r.result)); })
+        .catch(() => { if (onDone) onDone(false); });
+      return;
+    }
+    if (onDone) onDone(false);
+  }
+
+  // Rewarded video. onRewarded fires only for a confirmed full watch-through —
+  // gate the actual in-game reward on that call, not just on the ad closing.
+  function showRewarded(onRewarded, onClose) {
+    if (kind === 'yandex' && ysdk) {
+      gameplayStop();
+      let rewarded = false;
+      ysdk.adv.showRewardedVideo({
+        callbacks: {
+          onRewarded: () => { rewarded = true; if (onRewarded) onRewarded(); },
+          onClose: () => { gameplayStart(); if (onClose) onClose(rewarded); },
+          onError: () => { gameplayStart(); if (onClose) onClose(false); },
+        },
+      });
+      return;
+    }
+    if (kind === 'vk' && window.vkBridge) {
+      window.vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'reward', use_waterfall: true })
+        .then((r) => {
+          const ok = !!(r && r.result);
+          if (ok && onRewarded) onRewarded();
+          if (onClose) onClose(ok);
+        })
+        .catch(() => { if (onClose) onClose(false); });
+      return;
+    }
+    if (onClose) onClose(false);
+  }
+
+  // Cloud save: Yandex Player Data / VK Storage when available, so progress
+  // follows the player across devices — callers still write to localStorage
+  // too (see saveGameState), so a cloud hiccup never loses same-device progress.
+  async function cloudLoad() {
+    try {
+      if (kind === 'yandex' && player) {
+        const data = await player.getData(['save']);
+        return (data && data.save) ? data.save : null;
+      }
+      if (kind === 'vk' && window.vkBridge) {
+        const res = await window.vkBridge.send('VKWebAppStorageGet', { keys: ['save'] });
+        const item = res && res.keys && res.keys.find((k) => k.key === 'save');
+        return (item && item.value) ? item.value : null;
+      }
+    } catch (e) { /* fall through to local-only */ }
+    return null;
+  }
+
+  async function cloudSave(json) {
+    try {
+      if (kind === 'yandex' && player) { await player.setData({ save: json }); return; }
+      if (kind === 'vk' && window.vkBridge) { await window.vkBridge.send('VKWebAppStorageSet', { key: 'save', value: json }); return; }
+    } catch (e) { /* local save already covers this turn */ }
+  }
+
+  return {
+    init, notifyReady, gameplayStart, gameplayStop,
+    showInterstitial, showRewarded, cloudLoad, cloudSave,
+    get kind() { return kind; },
+  };
+})();
+
 const SAVE_KEY = 'hexhoney_save_v1';
 
 async function loadGameState() {
@@ -1573,7 +1758,13 @@ async function loadGameState() {
       raw = res ? res.value : null;
     } catch (e) { raw = null; }
   } else {
-    try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+    // Cloud save (Yandex Player Data / VK Storage) is the source of truth when
+    // available — it's what lets progress follow the player across devices —
+    // with localStorage as the same-device fallback either way.
+    try { raw = await Platform.cloudLoad(); } catch (e) { raw = null; }
+    if (!raw) {
+      try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { raw = null; }
+    }
   }
   if (!raw) return mergeState(null);
   try { return mergeState(JSON.parse(raw)); } catch (e) { return mergeState(null); }
@@ -1584,9 +1775,10 @@ async function saveGameState() {
   try { json = JSON.stringify(gameState); } catch (e) { return; }
   if (window.storage) {
     try { await window.storage.set(SAVE_KEY, json, false); } catch (e) { /* ignore */ }
-  } else {
-    try { localStorage.setItem(SAVE_KEY, json); } catch (e) { /* ignore */ }
+    return;
   }
+  try { localStorage.setItem(SAVE_KEY, json); } catch (e) { /* ignore */ }
+  try { await Platform.cloudSave(json); } catch (e) { /* ignore */ }
 }
 
 const RADIUS = 5;
@@ -1601,6 +1793,8 @@ let gameState = null;
 let gameBoard = createBoard(RADIUS);
 let trayPieces = [null, null, null];
 let roundHoney = 0, roundScore = 0, roundBestCombo = 0, roundLinesCleared = 0, roundComboCount = 0;
+let roundDoubleClaimed = false;
+let roundsSincePlatformAd = 0;
 let rerollUsedThisRound = false;
 let sessionBest = 0, roundStartBest = 0;
 let clearFx = [];
@@ -1614,7 +1808,7 @@ let canvas, gameArea, floatLayer, comboBanner, honeyCountEl, scoreCountEl,
     welcomeOverlay, startBtn,
     idleOverlay, idleModalEmojiEl, idleModalTitleEl, idleModalTextEl, idleClaimBtn,
     calendarOverlay, calendarSubEl, calendarGridEl, calendarCloseBtn,
-    gameoverOverlay, apiaryBtn, resultHoney, resultScore, resultCombo, resultLines, recordNote,
+    gameoverOverlay, apiaryBtn, doubleRewardBtn, resultHoney, resultScore, resultCombo, resultLines, recordNote,
     levelNumEl, levelXpFillEl, levelPlaqueWrapEl, ratingValueEl, resHoneyEl, resHoneyGoalEl, resHoneyPlusBtn, resDiamondsEl, resPlusBtn, resTerritoryEl, resTerritoryPlusBtn,
     dailyChallengeBtnEl, dailyChallengeDotEl,
     calendarPanelV2El, calendarPanelDaysEl, navBadgeQuestsEl, navBadgeShopEl,
@@ -2121,6 +2315,7 @@ function triggerGameOver() {
   gameState.stats.roundsPlayed += 1;
   gameState.stats.bestScore = Math.max(gameState.stats.bestScore, roundScore);
   saveGameState();
+  Platform.gameplayStop();
 
   const isRecord = roundScore > 0 && roundScore > roundStartBest;
   sessionBest = Math.max(sessionBest, roundScore);
@@ -2130,6 +2325,10 @@ function triggerGameOver() {
   resultCombo.textContent = '×' + roundBestCombo;
   resultLines.textContent = roundLinesCleared;
   recordNote.classList.toggle('hidden', !isRecord);
+  roundDoubleClaimed = false;
+  doubleRewardBtn.classList.toggle('hidden', roundHoney <= 0);
+  doubleRewardBtn.disabled = false;
+  doubleRewardBtn.textContent = 'Смотреть рекламу · x2 мёд';
   gameoverOverlay.classList.remove('hidden');
 }
 
@@ -2144,6 +2343,7 @@ function startPuzzleRound() {
   updateHud();
   updateRerollButton();
   renderBoosterBar();
+  Platform.gameplayStart();
 }
 
 function showScreen(name) {
@@ -2993,9 +3193,39 @@ function wireEconomyActions() {
     renderApiaryScreen();
   });
 
+  doubleRewardBtn.addEventListener('click', function () {
+    if (roundDoubleClaimed || roundHoney <= 0) return;
+    doubleRewardBtn.disabled = true;
+    doubleRewardBtn.textContent = 'Загрузка…';
+    Platform.showRewarded(
+      function onRewarded() {
+        gameState.honey += roundHoney;
+        resultHoney.textContent = roundHoney * 2;
+        roundDoubleClaimed = true;
+        saveGameState();
+      },
+      function onClose(wasRewarded) {
+        if (wasRewarded) {
+          doubleRewardBtn.textContent = 'Награда удвоена ✓';
+        } else {
+          doubleRewardBtn.disabled = false;
+          doubleRewardBtn.textContent = 'Смотреть рекламу · x2 мёд';
+        }
+      }
+    );
+  });
+
   apiaryBtn.addEventListener('click', function () {
     gameoverOverlay.classList.add('hidden');
-    navigateTo('apiary');
+    // Interstitial no more than every 2-3 completed rounds, at this natural
+    // pause point between a round and the hub — never mid-puzzle.
+    roundsSincePlatformAd += 1;
+    if (roundsSincePlatformAd >= 3) {
+      roundsSincePlatformAd = 0;
+      Platform.showInterstitial(function () { navigateTo('apiary'); });
+    } else {
+      navigateTo('apiary');
+    }
   });
 }
 
@@ -3038,6 +3268,7 @@ function cacheDom() {
 
   gameoverOverlay = document.getElementById('gameover-overlay');
   apiaryBtn = document.getElementById('apiary-btn');
+  doubleRewardBtn = document.getElementById('double-reward-btn');
   resultHoney = document.getElementById('result-honey');
   resultScore = document.getElementById('result-score');
   resultCombo = document.getElementById('result-combo');
@@ -3086,6 +3317,7 @@ function cacheDom() {
 
 async function boot() {
   cacheDom();
+  await Platform.init();
   gameState = await loadGameState();
 
   computeLayout();
@@ -3115,6 +3347,7 @@ async function boot() {
   }
 
   requestAnimationFrame(loop);
+  Platform.notifyReady();
 }
 
 document.addEventListener('DOMContentLoaded', function () { boot(); });
