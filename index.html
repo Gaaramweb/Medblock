@@ -145,6 +145,14 @@
   .icon-btn:active { transform: scale(0.92); }
   .icon-btn:focus-visible { outline: 2px solid var(--honey-light); outline-offset: 2px; }
   .icon-btn.hidden { display: none; }
+  /* "Пчела-сборщица" bonus reroll — same button, a gold pulse marks it as a
+     free, earned bonus rather than the plain everyday reroll. */
+  .icon-btn.bonus {
+    background: linear-gradient(160deg, var(--honey-light), var(--honey-deep));
+    border-color: rgba(255,255,255,0.4);
+    animation: playGlow 2.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .icon-btn.bonus { animation: none; } }
 
   #game-area { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 
@@ -449,6 +457,20 @@
   }
   .farm-hive-popover .fhp-title { font-weight: 900; font-size: 0.85rem; margin-bottom: 4px; }
   .farm-hive-popover .fhp-rate { font-size: 0.7rem; opacity: 0.7; font-weight: 700; margin-bottom: 6px; }
+  .fhp-decor-options { display: flex; gap: 6px; justify-content: center; margin: 4px 0 8px; flex-wrap: wrap; max-width: 220px; }
+  .fhp-decor-opt {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 10px; padding: 6px 8px; cursor: pointer;
+    font-family: inherit; font-size: 0.6rem; font-weight: 800; color: var(--ink);
+  }
+  .fhp-decor-opt:active { transform: translateY(1px); background: rgba(0,0,0,0.1); }
+  .fhp-decor-emoji { font-size: 1.4rem; line-height: 1.4; }
+  .fhp-skip-btn {
+    display: block; margin: 0 auto; background: none; border: none;
+    text-decoration: underline; font-family: inherit;
+    font-size: 0.68rem; font-weight: 700; color: var(--ink); opacity: 0.65; cursor: pointer; padding: 4px;
+  }
   .inline-icon { width: 14px; height: 14px; object-fit: contain; vertical-align: -2px; margin-left: 2px; }
 
   /* -- Daily-challenge quick popover (hangs off the single top-right action button) -- */
@@ -1482,7 +1504,12 @@ function unlockTerritoryTile(state, index) {
   state.honey -= cost;
   tile.unlocked = true;
   addXp(state, 6);
-  autoPlaceDecor(state);
+  // No longer auto-placed here: with 2+ owned-but-unplaced decorations, the
+  // player picks which one goes on this freshly-opened plot (see
+  // onTerritoryBuyConfirm/decorChoiceForIndex). With 0 or 1, there's no real
+  // choice to make, so that one case still places automatically.
+  const unplaced = state.decorations.filter((d) => d.owned && d.placedIndex == null);
+  if (unplaced.length === 1) autoPlaceDecor(state);
   return true;
 }
 
@@ -1801,6 +1828,8 @@ let roundHoney = 0, roundScore = 0, roundBestCombo = 0, roundLinesCleared = 0, r
 let roundDoubleClaimed = false;
 let roundsSincePlatformAd = 0;
 let rerollUsedThisRound = false;
+let roundClearStreak = 0;
+let bonusRerollAvailable = false;
 let sessionBest = 0, roundStartBest = 0;
 let clearFx = [];
 let drag = null;
@@ -2280,9 +2309,21 @@ function dealNewBatch() {
   }
 }
 
+// "Комбо «пчела-сборщица»" из ТЗ: 3 успешных подряд размещения (каждое хотя бы
+// с одной собранной линией) дают бесплатный реролл фигур — доступен ВСЕМ, не
+// только владельцам Пчелы-Разведчицы: это награда за серию, а не пассивный
+// бонус пчелы. Порог/эффект — дизайнерское решение (подстраивается тут), не
+// значение из существующих данных.
+const BEE_COMBO_STREAK_THRESHOLD = 3;
+
 function updateRerollButton() {
   const owns = hasBee(gameState, 'bee_scout');
-  rerollBtn.classList.toggle('hidden', !owns || rerollUsedThisRound);
+  const canReroll = bonusRerollAvailable || (owns && !rerollUsedThisRound);
+  rerollBtn.classList.toggle('hidden', !canReroll);
+  rerollBtn.classList.toggle('bonus', bonusRerollAvailable);
+  rerollBtn.title = bonusRerollAvailable
+    ? 'Бонус «Пчела-сборщица»: бесплатная замена фигур!'
+    : 'Заменить фигуры (1 раз за раунд)';
 }
 
 function commitPlacement(slotIndex, shape, originQ, originR) {
@@ -2342,6 +2383,19 @@ function commitPlacement(slotIndex, shape, originQ, originR) {
     spawnFloatingText('+' + honeyGain + ' 🍯', sumX / cnt, sumY / cnt);
     if (honeyBonusCells > 0) spawnFloatingText('Медовый блок! 🍯✨', sumX / cnt, sumY / cnt - layout.boardHexSize * 1.4);
     if (linesCleared >= 2) showComboBanner(linesCleared);
+
+    // "Пчела-сборщица": a streak of clearing placements earns a free reroll —
+    // available even without owning bee_scout, since it's a reward for the
+    // streak itself, not that bee's passive perk.
+    roundClearStreak += 1;
+    if (roundClearStreak >= BEE_COMBO_STREAK_THRESHOLD) {
+      roundClearStreak = 0;
+      bonusRerollAvailable = true;
+      updateRerollButton();
+      spawnFloatingText('🐝 Пчела-сборщица! Бесплатный реролл', sumX / cnt, sumY / cnt - layout.boardHexSize * 2.2);
+    }
+  } else {
+    roundClearStreak = 0;
   }
 
   if (trayPieces.every((p) => p === null)) dealNewBatch();
@@ -2377,6 +2431,8 @@ function startPuzzleRound() {
   gameBoard = createBoard(RADIUS);
   roundHoney = 0; roundScore = 0; roundBestCombo = 0; roundLinesCleared = 0; roundComboCount = 0;
   rerollUsedThisRound = false;
+  roundClearStreak = 0;
+  bonusRerollAvailable = false;
   clearFx = []; drag = null; snapBack = null;
   activeBooster = null;
   roundStartBest = sessionBest;
@@ -2429,6 +2485,11 @@ function enterApiary() {
   const now = Date.now();
   refreshDaily(gameState, now);
   gameState.lastVisitTimestamp = now;
+  // Only reset here (a fresh navigation into the screen), not inside
+  // renderApiaryScreen() itself — that's also called right after a purchase
+  // completes, and that call needs decorChoiceForIndex to survive so the
+  // picker it just opened actually shows.
+  decorChoiceForIndex = null;
   saveGameState();
   renderApiaryScreen();
 
@@ -2457,29 +2518,7 @@ function farmGridToUnit(row, col, count) {
   return { x: (col - (count - 1) / 2) * sqrt3 + rowShift, y: row * 1.5 };
 }
 
-const FARM_GRID_CELLS = [];
-FARM_GRID_ROWS.forEach((count, row) => {
-  for (let col = 0; col < count; col++) FARM_GRID_CELLS.push({ row: row, col: col, count: count });
-});
-const FARM_GRID_UNITS = FARM_GRID_CELLS.map((c) => {
-  const u = farmGridToUnit(c.row, c.col, c.count);
-  return { row: c.row, col: c.col, x: u.x, y: u.y };
-});
-// A cell's *center* can sit right at the edge of the block, but its drawn hexagon
-// reaches further out than that — sqrt(3)/2 sideways, 1 up/down at size=1 — so the
-// real bounding box (used for both fitting and centering) pads by that much.
-const FARM_GRID_MARGIN_X = Math.sqrt(3) / 2;
-const FARM_GRID_MARGIN_Y = 1;
-const FARM_GRID_MINX = Math.min(...FARM_GRID_UNITS.map((u) => u.x)) - FARM_GRID_MARGIN_X;
-const FARM_GRID_MAXX = Math.max(...FARM_GRID_UNITS.map((u) => u.x)) + FARM_GRID_MARGIN_X;
-const FARM_GRID_MINY = Math.min(...FARM_GRID_UNITS.map((u) => u.y)) - FARM_GRID_MARGIN_Y;
-const FARM_GRID_MAXY = Math.max(...FARM_GRID_UNITS.map((u) => u.y)) + FARM_GRID_MARGIN_Y;
-const FARM_GRID_CENTERX = (FARM_GRID_MINX + FARM_GRID_MAXX) / 2;
-const FARM_GRID_CENTERY = (FARM_GRID_MINY + FARM_GRID_MAXY) / 2;
-const FARM_GRID_HALF_W = (FARM_GRID_MAXX - FARM_GRID_MINX) / 2;
-const FARM_GRID_HALF_H = (FARM_GRID_MAXY - FARM_GRID_MINY) / 2;
-
-// Where the hive and the 6 real, purchasable plots sit within the 24-cell block —
+// Where the hive and the 6 real, purchasable plots sit within the 7/7/5/5 layout —
 // picked (and checked numerically) so all 6 are exactly one hex-step from the hive,
 // in the same left/right/upper-left/etc. relationships the old ring used. Same
 // gameState.territory array, order and economy as always; only the on-screen slot
@@ -2493,13 +2532,43 @@ const FARM_TILE_CELLS = [
   { row: 2, col: 2 }, // was: lower-left
   { row: 2, col: 3 }, // was: lower-right
 ];
-const FARM_SPECIAL_CELL_KEYS = {};
-FARM_SPECIAL_CELL_KEYS[FARM_HIVE_CELL.row + ':' + FARM_HIVE_CELL.col] = true;
-FARM_TILE_CELLS.forEach((c) => { FARM_SPECIAL_CELL_KEYS[c.row + ':' + c.col] = true; });
+
+// Decorative filler: an elongated (not symmetric-ring) spread — wide along the
+// hive's own row, narrower one row above/below, nothing on row 3 at all. Reads
+// as a stretched path rather than a blob or a full rectangle; still roughly half
+// the old 17 filler cells (8 instead of 17), and everything beyond this is simply
+// not drawn — plain background, not an empty hex outline.
+const FARM_DECORATIVE_CELLS = [
+  { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 5 }, { row: 1, col: 6 },
+  { row: 0, col: 2 }, { row: 0, col: 5 },
+  { row: 2, col: 1 }, { row: 2, col: 4 },
+];
+
+// Only the cells actually drawn (core + the one decorative ring) count toward
+// sizing/centering — the rest of the 7/7/5/5 rectangle was dropped, so fitting
+// against its full extent would leave the visible shape looking too small/loose.
+const FARM_VISIBLE_UNITS = [FARM_HIVE_CELL].concat(FARM_TILE_CELLS, FARM_DECORATIVE_CELLS).map((c) => {
+  const u = farmGridToUnit(c.row, c.col, FARM_GRID_ROWS[c.row]);
+  return { row: c.row, col: c.col, x: u.x, y: u.y };
+});
+// A cell's *center* can sit right at the edge of the shape, but its drawn hexagon
+// reaches further out than that — sqrt(3)/2 sideways, 1 up/down at size=1 — so the
+// real bounding box (used for both fitting and centering) pads by that much.
+const FARM_GRID_MARGIN_X = Math.sqrt(3) / 2;
+const FARM_GRID_MARGIN_Y = 1;
+const FARM_GRID_MINX = Math.min(...FARM_VISIBLE_UNITS.map((u) => u.x)) - FARM_GRID_MARGIN_X;
+const FARM_GRID_MAXX = Math.max(...FARM_VISIBLE_UNITS.map((u) => u.x)) + FARM_GRID_MARGIN_X;
+const FARM_GRID_MINY = Math.min(...FARM_VISIBLE_UNITS.map((u) => u.y)) - FARM_GRID_MARGIN_Y;
+const FARM_GRID_MAXY = Math.max(...FARM_VISIBLE_UNITS.map((u) => u.y)) + FARM_GRID_MARGIN_Y;
+const FARM_GRID_CENTERX = (FARM_GRID_MINX + FARM_GRID_MAXX) / 2;
+const FARM_GRID_CENTERY = (FARM_GRID_MINY + FARM_GRID_MAXY) / 2;
+const FARM_GRID_HALF_W = (FARM_GRID_MAXX - FARM_GRID_MINX) / 2;
+const FARM_GRID_HALF_H = (FARM_GRID_MAXY - FARM_GRID_MINY) / 2;
 
 let farmLayout = null;
 let hivePopoverOpen = false;
 let territoryPopoverIndex = null;
+let decorChoiceForIndex = null;
 // Bounded drag-to-pan — mobile only (see computeFarmLayout's maxPanX/Y, which are
 // 0 whenever the block already fits, making the drag a no-op on desktop by
 // construction rather than by a separate on/off switch).
@@ -2635,11 +2704,31 @@ function onTerritoryTap(index) {
 function onTerritoryBuyConfirm(index) {
   if (unlockTerritoryTile(gameState, index)) {
     territoryPopoverIndex = null;
+    // 2+ owned-but-unplaced decorations after the unlock → let the player pick
+    // which one goes on this plot, instead of auto-placing one for them.
+    const unplaced = gameState.decorations.filter((d) => d.owned && d.placedIndex == null);
+    decorChoiceForIndex = unplaced.length >= 2 ? index : null;
     saveGameState();
     renderApiaryScreen();
   } else {
     showFarmToast('Не хватает мёда на расширение');
   }
+}
+
+function chooseDecorForTile(tileIndex, decorId) {
+  const tile = gameState.territory[tileIndex];
+  const decor = gameState.decorations.find((d) => d.id === decorId);
+  if (!tile || !decor || !decor.owned || decor.placedIndex != null) return;
+  tile.decorId = decorId;
+  decor.placedIndex = tileIndex;
+  decorChoiceForIndex = null;
+  saveGameState();
+  renderFarmOverlay();
+}
+
+function skipDecorChoice() {
+  decorChoiceForIndex = null;
+  renderFarmOverlay();
 }
 
 // The 8-flower collection (names confirmed for the shop). Tiles pick a flower deterministically
@@ -2679,11 +2768,11 @@ function renderFarmOverlay() {
   const size = farmLayout.size;
   const flat = farmLayout.mobile;
 
-  // Every grid cell that isn't the hive or one of the 6 real plots is decorative
-  // filler, just completing the 7/7/5/5 shape — not clickable, no game state.
-  FARM_GRID_CELLS.forEach((cell) => {
-    if (FARM_SPECIAL_CELL_KEYS[cell.row + ':' + cell.col]) return;
-    const p = farmScreenPos(farmGridToUnit(cell.row, cell.col, cell.count));
+  // A single ring of decorative filler around the hive/6 real plots — a hint
+  // that there's more territory nearby without it reading as a solid block.
+  // Not clickable, no game state.
+  FARM_DECORATIVE_CELLS.forEach((cell) => {
+    const p = farmScreenPos(farmGridToUnit(cell.row, cell.col, FARM_GRID_ROWS[cell.row]));
     farmOverlayEl.appendChild(makeHexTile('locked-deco', size, p.x, p.y, false, flat));
   });
 
@@ -2767,6 +2856,42 @@ function renderFarmOverlay() {
       });
     } else {
       territoryPopoverIndex = null;
+    }
+  }
+
+  // Right after a plot is bought, if there's a real choice to make (2+ owned
+  // decorations with nowhere to go yet), let the player pick which one lands
+  // here — see onTerritoryBuyConfirm/chooseDecorForTile.
+  if (decorChoiceForIndex !== null) {
+    const tile = gameState.territory[decorChoiceForIndex];
+    const unplaced = gameState.decorations.filter((d) => d.owned && d.placedIndex == null);
+    if (tile && tile.unlocked && !tile.decorId && unplaced.length > 0) {
+      const cell = FARM_TILE_CELLS[decorChoiceForIndex];
+      const p = farmScreenPos(farmGridToUnit(cell.row, cell.col, FARM_GRID_ROWS[cell.row]));
+      const pop = document.createElement('div');
+      pop.className = 'farm-hive-popover';
+      pop.style.left = p.x + 'px';
+      pop.style.top = (p.y - size * 0.95) + 'px';
+      pop.innerHTML =
+        '<div class="fhp-title">Что посадить здесь?</div>' +
+        '<div class="fhp-decor-options">' +
+        unplaced.map((d) => {
+          const def = DECOR_DEFS[d.id];
+          return '<button class="fhp-decor-opt" data-decor-id="' + d.id + '"><span class="fhp-decor-emoji">' + def.icon + '</span>' + def.name + '</button>';
+        }).join('') +
+        '</div>' +
+        '<button class="fhp-skip-btn" id="decor-skip-btn">Пропустить</button>';
+      farmOverlayEl.appendChild(pop);
+      pop.querySelectorAll('.fhp-decor-opt').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          chooseDecorForTile(decorChoiceForIndex, btn.dataset.decorId);
+        });
+      });
+      const skipBtn = document.getElementById('decor-skip-btn');
+      if (skipBtn) skipBtn.addEventListener('click', (e) => { e.stopPropagation(); skipDecorChoice(); });
+    } else {
+      decorChoiceForIndex = null;
     }
   }
 }
@@ -3212,6 +3337,12 @@ function wireEconomyActions() {
   });
 
   rerollBtn.addEventListener('click', function () {
+    if (bonusRerollAvailable) {
+      bonusRerollAvailable = false;
+      dealNewBatch();
+      updateRerollButton();
+      return;
+    }
     if (rerollUsedThisRound) return;
     dealNewBatch();
     rerollUsedThisRound = true;
