@@ -457,21 +457,66 @@
   }
   .farm-hive-popover .fhp-title { font-weight: 900; font-size: 0.85rem; margin-bottom: 4px; }
   .farm-hive-popover .fhp-rate { font-size: 0.7rem; opacity: 0.7; font-weight: 700; margin-bottom: 6px; }
-  .fhp-decor-options { display: flex; gap: 6px; justify-content: center; margin: 4px 0 8px; flex-wrap: wrap; max-width: 220px; }
-  .fhp-decor-opt {
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-    background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.12);
-    border-radius: 10px; padding: 6px 8px; cursor: pointer;
-    font-family: inherit; font-size: 0.6rem; font-weight: 800; color: var(--ink);
-  }
-  .fhp-decor-opt:active { transform: translateY(1px); background: rgba(0,0,0,0.1); }
-  .fhp-decor-emoji { font-size: 1.4rem; line-height: 1.4; }
-  .fhp-skip-btn {
-    display: block; margin: 0 auto; background: none; border: none;
-    text-decoration: underline; font-family: inherit;
-    font-size: 0.68rem; font-weight: 700; color: var(--ink); opacity: 0.65; cursor: pointer; padding: 4px;
-  }
   .inline-icon { width: 14px; height: 14px; object-fit: contain; vertical-align: -2px; margin-left: 2px; }
+
+  /* -- Warehouse: bought flowers/decor wait here until the player plants them -- */
+  .warehouse-bar {
+    flex: 0 0 auto; margin: 2px 8px 0; padding: 6px 8px 8px; border-radius: 14px;
+    background: linear-gradient(160deg, #fff3d9, var(--cream)); color: var(--ink);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.22);
+  }
+  .warehouse-bar.hidden { display: none; }
+  .warehouse-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .warehouse-title { font-weight: 900; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .warehouse-hint { font-size: 0.66rem; font-weight: 700; opacity: 0.7; }
+  .warehouse-items { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  .wh-chip {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 5px; cursor: pointer;
+    background: rgba(0,0,0,0.06); border: 2px solid transparent; border-radius: 999px;
+    padding: 4px 10px 4px 5px; font-family: inherit; font-weight: 800; font-size: 0.7rem; color: var(--ink);
+    transition: transform 0.1s cubic-bezier(.34,1.56,.64,1);
+  }
+  .wh-chip:active { transform: scale(0.95); }
+  .wh-chip.selected { border-color: var(--good); background: rgba(134,193,100,0.28); }
+  .wh-chip-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+  .wh-chip-icon img { width: 100%; height: 100%; object-fit: contain; }
+
+  /* Free plot: a slot marker at 75% of the cell (dashed hex outline, no fill). */
+  .hex-slot {
+    width: 75%; height: 75%; pointer-events: none; opacity: 0.7;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolygon points='50,2 98,26 98,74 50,98 2,74 2,26' fill='none' stroke='white' stroke-width='3' stroke-dasharray='7 5' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  }
+  .hex-tile--flat .hex-slot {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolygon points='26,2 74,2 98,50 74,98 26,98 2,50' fill='none' stroke='white' stroke-width='3' stroke-dasharray='7 5' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  .hex-tile--placing .hex-slot { opacity: 1; animation: slotPulse 1.1s ease-in-out infinite; }
+  @keyframes slotPulse { 0%, 100% { transform: scale(0.94); } 50% { transform: scale(1.04); } }
+  .hex-tile-emoji { line-height: 1; pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.25)); }
+  @media (prefers-reduced-motion: reduce) { .hex-tile--placing .hex-slot { animation: none; } }
+
+  /* Apiary look: two stacked layers crossfade between rating stages. */
+  .apiary-stage-layer {
+    position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background-size: cover; background-position: center; background-repeat: no-repeat;
+    opacity: 0; transition: opacity 1.2s ease;
+  }
+  .apiary-stage-layer.on { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .apiary-stage-layer { transition: none; } }
+
+  /* Locked-plot art: html[data-lock] is set at boot from which files actually load —
+     icon_cell_locked.png if it exists, else hex_locked.png (default), else a drawn padlock. */
+  html[data-lock="icon"] .hex-tile--locked {
+    background-image: none; background-color: var(--hex-locked-deep);
+  }
+  html[data-lock="icon"] .hex-tile--locked::after {
+    content: ''; position: absolute; inset: 0;
+    background: url('assets/icon_cell_locked.png') center / 46% no-repeat;
+  }
+  html[data-lock="svg"] .hex-tile--locked { background-image: none; background-color: var(--hex-locked-deep); }
+  html[data-lock="svg"] .hex-tile--locked::after {
+    content: ''; position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23f4efe6' d='M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h1zm2 0h6V8a3 3 0 0 0-6 0v2z'/%3E%3C/svg%3E") center / 42% no-repeat;
+  }
 
   /* -- Daily-challenge quick popover (hangs off the single top-right action button) -- */
   .daily-challenge-popover {
@@ -943,6 +988,10 @@
   </div>
 
   <div id="screen-apiary" class="screen">
+    <!-- Apiary look by rating stage (two layers so the change crossfades). Files:
+         assets/bg_apiary_stage_1..5.png — a missing file just keeps the shared background. -->
+    <div class="apiary-stage-layer" id="apiary-stage-a"></div>
+    <div class="apiary-stage-layer" id="apiary-stage-b"></div>
     <header class="apiary-topbar-v2">
       <button class="level-plaque-wrap" id="level-plaque-wrap" data-nav="profile" aria-label="Профиль">
         <div class="level-plaque">
@@ -992,6 +1041,10 @@
       </div>
     </header>
 
+    <div class="warehouse-bar hidden" id="warehouse-bar">
+      <div class="warehouse-head"><span class="warehouse-title">Склад</span><span class="warehouse-hint" id="warehouse-hint"></span></div>
+      <div class="warehouse-items" id="warehouse-items"></div>
+    </div>
     <div class="farm-stage" id="farm-stage">
       <div class="farm-bees" id="farm-bees" aria-hidden="true"></div>
       <div class="farm-overlay" id="farm-overlay"></div>
@@ -1078,6 +1131,16 @@
   </div>
 </div>
 
+<div id="continue-overlay" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-emoji">🐝</div>
+    <h1>Нет ходов</h1>
+    <p>Посмотрите рекламу — пчёлы расчистят центр поля и выдадут новые фигуры.</p>
+    <button id="continue-watch-btn" class="secondary-btn">Продолжить · смотреть рекламу</button>
+    <button id="continue-skip-btn" class="primary-btn">Завершить раунд</button>
+  </div>
+</div>
+
 <div id="gameover-overlay" class="overlay hidden">
   <div class="modal">
     <div class="modal-emoji">🍯</div>
@@ -1089,6 +1152,7 @@
       <div class="result"><span class="result-value" id="result-combo">×0</span><span class="result-label">лучшее комбо</span></div>
     </div>
     <p id="record-note" class="record-note hidden">Новый рекорд сессии! 🎉</p>
+    <p id="booster-note" class="record-note hidden"></p>
     <button id="double-reward-btn" class="secondary-btn hidden">Смотреть рекламу · x2 мёд</button>
     <button id="apiary-btn" class="primary-btn">На пасеку</button>
   </div>
@@ -1255,18 +1319,34 @@ const HIVE_UPGRADE_COST_MULT = 1.45;
 
 const BEE_DEFS = {
   bee_worker: { name: 'Пчёлка-Труженица', icon: '<img src="assets/work-bee.png" alt="">', cost: 0,  costCurrency: null,      effect: 'start_bee_no_bonus',       description: 'Обычная пчела с пасеки. Пока просто радует глаз — бонусов не даёт.' },
-  bee_scout:  { name: 'Пчела-Разведчица', icon: '<img src="assets/delivery-bee.jpg" alt="">', cost: 30, costCurrency: 'pollen',  effect: 'extra_reroll_per_round',   description: 'Даёт одну бесплатную замену фигур за раунд в пазле.' },
+  bee_scout:  { name: 'Пчела-Разведчица', icon: '<img src="assets/delivery-bee.jpg" alt="">', cost: 30, costCurrency: 'pollen',  effect: 'idle_honey_boost',   description: 'Приносит мёд, пока вас нет в игре. Пазл не меняет.' },
   bee_queen:  { name: 'Пчелиная Матка',   icon: '<img src="assets/builder-bee.jpg" alt="">', cost: 80, costCurrency: 'pollen',  effect: 'plus10pct_honey_per_line', description: '+10% мёда за каждую собранную линию в пазле.' },
 };
 
+// One real flower price (the game's existing flower-decoration cost) — every flower
+// species shares it; there is no per-species price anywhere else in the game data.
+const FLOWER_PRICE = 40;
 const DECOR_DEFS = {
-  flower_1:      { name: 'Ромашки', icon: '🌼', cost: 40 },
+  // Legacy generic daisy decoration: no longer sold (the 8 flower species below replace it),
+  // but kept so saves that already own/placed it keep working.
+  flower_1:      { name: 'Ромашки', icon: '🌼', cost: FLOWER_PRICE, legacy: true },
   fence_1:       { name: 'Плетень', icon: '🌾', cost: 60 },
   planter_1:     { name: 'Кашпо с цветами', icon: '🪴', cost: 55 },
   globe_1:       { name: 'Малый глобус', icon: '🌐', cost: 70 },
   statue_1:      { name: 'Золотая Пчела', icon: '🐝', cost: 150, statue: true },
   golden_flower: { name: 'Золотой Цветок', icon: '🌟', cost: null, hidden: true },
+  // The 8 flower species (art lives in FLOWER_DEFS, keyed by `flower`).
+  fl_daisy:      { name: 'Ромашка',     icon: '🌼', cost: FLOWER_PRICE, flower: 'daisy' },
+  fl_dandelion:  { name: 'Одуванчик',   icon: '🌻', cost: FLOWER_PRICE, flower: 'dandelion' },
+  fl_clover:     { name: 'Клевер',      icon: '☘️', cost: FLOWER_PRICE, flower: 'clover' },
+  fl_bluebell:   { name: 'Колокольчик', icon: '🔔', cost: FLOWER_PRICE, flower: 'bluebell' },
+  fl_wild_rose:  { name: 'Дикая роза',  icon: '🌹', cost: FLOWER_PRICE, flower: 'wild_rose' },
+  fl_lavender:   { name: 'Лаванда',     icon: '💜', cost: FLOWER_PRICE, flower: 'lavender' },
+  fl_buttercup:  { name: 'Лютик',       icon: '🌼', cost: FLOWER_PRICE, flower: 'buttercup' },
+  fl_tulip:      { name: 'Тюльпан',     icon: '🌷', cost: FLOWER_PRICE, flower: 'tulip' },
 };
+// A placed decoration raises the "Рейтинг" counter by this much (see computeRating).
+const DECOR_RATING_WEIGHT = 45;
 
 // The 8-tier bee collection — Russian names as given. Economy (level gate / cost / bonus)
 // is my design per your "экономика на тебе": each tier needs BOTH a player level and a honey
@@ -1297,9 +1377,9 @@ function buyNextBeeTier(state) {
 }
 
 const BOOSTER_DEFS = {
-  hammer: { name: 'Восковой Удар',     icon: '🔨', cost: 10, currency: 'honey',    desc: 'Убирает соту и пару соседних' },
+  hammer: { name: 'Восковой Удар',     icon: '🔨', cost: 2,  currency: 'diamonds', desc: 'Убирает соту и пару соседних' },
   bomb:   { name: 'Королевский Взрыв', icon: '💣', cost: 5,  currency: 'diamonds', desc: 'Убирает соту и всех соседей вокруг' },
-  laser:  { name: 'Нектарный Луч',     icon: '✨', cost: 50, currency: 'honey',    desc: 'Расчищает целый ряд сот' },
+  laser:  { name: 'Нектарный Луч',     icon: '✨', cost: 6,  currency: 'diamonds', desc: 'Расчищает целый ряд сот' },
 };
 
 const QUEST_POOL = [
@@ -1325,7 +1405,14 @@ const DAILY_POOL = [
 const FARM_GRID_ROWS = [7, 7, 5, 5];
 const FARM_STARTER_FLOWERS = { 0: '🌼', 3: '🌷' };
 const FARM_UNLOCK_BASE_COST = 60;
-const FARM_UNLOCK_COST_MULT = 1.6;
+const FARM_STARTER_COUNT = Object.keys(FARM_STARTER_FLOWERS).length;
+// Expansion plots are priced in groups: every plot inside a group costs the same,
+// and each next group costs more. Early groups are honey-only, later ones mix in
+// diamonds. (Only 4 plots are purchasable — 2 start unlocked — so 2 groups of 2.)
+const FARM_PRICE_GROUPS = [
+  { size: 2, honey: FARM_UNLOCK_BASE_COST, diamonds: 0 },
+  { size: 2, honey: 150, diamonds: 2 },
+];
 
 function makeRandomQuest(existingQuests) {
   existingQuests = existingQuests || [];
@@ -1367,14 +1454,7 @@ function createDefaultState(now) {
       { id: 'bee_scout', owned: false },
       { id: 'bee_queen', owned: false },
     ],
-    decorations: [
-      { id: 'flower_1', owned: false, placedIndex: null },
-      { id: 'fence_1', owned: false, placedIndex: null },
-      { id: 'planter_1', owned: false, placedIndex: null },
-      { id: 'globe_1', owned: false, placedIndex: null },
-      { id: 'statue_1', owned: false, placedIndex: null },
-      { id: 'golden_flower', owned: false, placedIndex: null },
-    ],
+    decorations: Object.keys(DECOR_DEFS).map((id) => ({ id: id, owned: false, placedIndex: null })),
     boosters: { hammer: 0, bomb: 0, laser: 0 },
     quests: [q1, q2],
     daily: { streak: 0, lastClaimDate: null, challenge: makeDailyChallenge(), challengeDate: dateStr(now) },
@@ -1481,35 +1561,49 @@ function upgradeHive(state) {
   return true;
 }
 
-function territoryUnlockCost(state) {
-  const unlockedCount = state.territory.filter((t) => t.unlocked).length;
-  return Math.round(FARM_UNLOCK_BASE_COST * Math.pow(FARM_UNLOCK_COST_MULT, Math.max(0, unlockedCount - 2)));
+function territoryUnlockPrice(state) {
+  let n = Math.max(0, state.territory.filter((t) => t.unlocked).length - FARM_STARTER_COUNT);
+  for (const g of FARM_PRICE_GROUPS) {
+    if (n < g.size) return { honey: g.honey, diamonds: g.diamonds };
+    n -= g.size;
+  }
+  const last = FARM_PRICE_GROUPS[FARM_PRICE_GROUPS.length - 1];
+  return { honey: last.honey, diamonds: last.diamonds };
 }
 
-function autoPlaceDecor(state) {
-  const unplaced = state.decorations.filter((d) => d.owned && d.placedIndex == null);
-  for (const d of unplaced) {
-    const idx = state.territory.findIndex((t) => t.unlocked && !t.starterFlower && !t.decorId);
-    if (idx === -1) break;
-    state.territory[idx].decorId = d.id;
-    d.placedIndex = idx;
-  }
-}
+// Kept for older call sites that only want the honey part.
+function territoryUnlockCost(state) { return territoryUnlockPrice(state).honey; }
 
 function unlockTerritoryTile(state, index) {
   const tile = state.territory[index];
   if (!tile || tile.unlocked) return false;
-  const cost = territoryUnlockCost(state);
-  if (state.honey < cost) return false;
-  state.honey -= cost;
+  const price = territoryUnlockPrice(state);
+  if (state.honey < price.honey || state.diamonds < price.diamonds) return false;
+  state.honey -= price.honey;
+  state.diamonds -= price.diamonds;
   tile.unlocked = true;
   addXp(state, 6);
-  // No longer auto-placed here: with 2+ owned-but-unplaced decorations, the
-  // player picks which one goes on this freshly-opened plot (see
-  // onTerritoryBuyConfirm/decorChoiceForIndex). With 0 or 1, there's no real
-  // choice to make, so that one case still places automatically.
-  const unplaced = state.decorations.filter((d) => d.owned && d.placedIndex == null);
-  if (unplaced.length === 1) autoPlaceDecor(state);
+  return true;
+}
+
+// ---- Flower/decoration warehouse: buying only stocks the warehouse; the player places
+// each item by hand into any free, unlocked plot.
+function warehouseItems(state) {
+  return state.decorations.filter((d) => d.owned && d.placedIndex == null);
+}
+
+function isTileFreeForDecor(tile) {
+  return !!tile && tile.unlocked && !tile.starterFlower && !tile.decorId;
+}
+
+function placeDecorFromWarehouse(state, decorId, tileIndex) {
+  const decor = state.decorations.find((d) => d.id === decorId);
+  const tile = state.territory[tileIndex];
+  if (!decor || !decor.owned || decor.placedIndex != null) return false;
+  if (!isTileFreeForDecor(tile)) return false;
+  tile.decorId = decorId;
+  decor.placedIndex = tileIndex;
+  addXp(state, 3);
   return true;
 }
 
@@ -1532,7 +1626,6 @@ function buyDecoration(state, id) {
   state.honey -= def.cost;
   decor.owned = true;
   addXp(state, 4);
-  autoPlaceDecor(state);
   return true;
 }
 
@@ -1544,6 +1637,33 @@ function buyBooster(state, type) {
   state.boosters[type] = (state.boosters[type] || 0) + 1;
   return true;
 }
+
+// ---- Bees: passive honey while away. Pure economy — nothing here (or anywhere a purchased
+// bee is read) touches the puzzle, so no number of bees can make the core game easier.
+const IDLE_HONEY_PER_MIN_PER_TIER = 0.05;
+const IDLE_HONEY_PER_MIN_PER_COLLECTIBLE = 0.08;
+const IDLE_MIN_MINUTES = 5;
+const IDLE_CAP_MINUTES = 8 * 60;
+function idleHoneyRatePerMin(state) {
+  const extraBees = Math.max(0, state.bees.filter((b) => b.owned).length - 1);
+  return Math.max(0, state.beeTier - 1) * IDLE_HONEY_PER_MIN_PER_TIER + extraBees * IDLE_HONEY_PER_MIN_PER_COLLECTIBLE;
+}
+function computeIdleHoney(state, now) {
+  const minutes = (now - state.lastVisitTimestamp) / 60000;
+  const rate = idleHoneyRatePerMin(state);
+  if (!(minutes >= IDLE_MIN_MINUTES) || rate <= 0) return 0;
+  return Math.floor(Math.min(minutes, IDLE_CAP_MINUTES) * rate);
+}
+
+// ---- Boosters are earned by playing; diamonds are only the top-up when they run out.
+const BOOSTER_TYPES = ['hammer', 'bomb', 'laser'];
+function grantBooster(state, type) { state.boosters[type] = (state.boosters[type] || 0) + 1; }
+const BOOSTER_EVERY_N_ROUNDS = 5;
+function boosterRewardForRound(roundsPlayed) { return roundsPlayed > 0 && roundsPlayed % BOOSTER_EVERY_N_ROUNDS === 0; }
+function boosterRewardForClear(linesCleared) { return linesCleared >= 3; }
+
+// ---- Interstitial pacing: one every 2–3 finished rounds, never every round.
+function nextInterstitialGap() { return Math.random() < 0.5 ? 2 : 3; }
 
 function hasBee(state, id) {
   const bee = state.bees.find((b) => b.id === id);
@@ -1609,7 +1729,7 @@ function claimDailyLogin(state, now) {
     honeyGain += 20;
     state.diamonds += 2;
     const gf = state.decorations.find((d) => d.id === 'golden_flower');
-    if (gf && !gf.owned) { gf.owned = true; grantedGoldenFlower = true; autoPlaceDecor(state); }
+    if (gf && !gf.owned) { gf.owned = true; grantedGoldenFlower = true; }
   }
   state.honey += honeyGain;
   addXp(state, 12);
@@ -1673,12 +1793,20 @@ const Platform = (function () {
 
   // Never rejects — a broken/slow/missing SDK just means "play locally, no
   // ads, no cloud save" instead of a stuck loading screen.
+  // Both portals run games inside an iframe. A plain top-level page (GitHub Pages, a
+  // local file, dev) skips the SDK attempt entirely, so it never waits on a script
+  // that can't answer outside the portal — startup stays instant there.
+  function inIframe() {
+    try { return window.self !== window.top; } catch (e) { return true; }
+  }
+
   async function init() {
     if (looksLikeVk()) {
-      try { await initVk(); } catch (e) { kind = 'none'; }
+      try { await withTimeout(initVk(), 3500); } catch (e) { kind = 'none'; }
       return;
     }
-    try { await initYandex(); } catch (e) { kind = 'none'; ysdk = null; player = null; }
+    if (!inIframe()) { kind = 'none'; return; }
+    try { await withTimeout(initYandex(), 3500); } catch (e) { kind = 'none'; ysdk = null; player = null; }
   }
 
   function notifyReady() {
@@ -1775,7 +1903,9 @@ const Platform = (function () {
 
   return {
     init, notifyReady, gameplayStart, gameplayStop,
+    canShowRewarded() { return kind !== 'none'; },
     showInterstitial, showRewarded, cloudLoad, cloudSave,
+    get canShowRewarded() { return kind === 'yandex' || kind === 'vk'; },
     get kind() { return kind; },
   };
 })();
@@ -1827,7 +1957,8 @@ let trayPieces = [null, null, null];
 let roundHoney = 0, roundScore = 0, roundBestCombo = 0, roundLinesCleared = 0, roundComboCount = 0;
 let roundDoubleClaimed = false;
 let roundsSincePlatformAd = 0;
-let rerollUsedThisRound = false;
+let interstitialGap = 3; // re-rolled to 2 or 3 after every showing (nextInterstitialGap)
+let roundContinueUsed = false;
 let roundClearStreak = 0;
 let bonusRerollAvailable = false;
 let sessionBest = 0, roundStartBest = 0;
@@ -1842,7 +1973,7 @@ let canvas, gameArea, floatLayer, comboBanner, honeyCountEl, scoreCountEl,
     welcomeOverlay, startBtn,
     idleOverlay, idleModalEmojiEl, idleModalTitleEl, idleModalTextEl, idleClaimBtn,
     calendarOverlay, calendarSubEl, calendarGridEl, calendarCloseBtn,
-    gameoverOverlay, apiaryBtn, doubleRewardBtn, resultHoney, resultScore, resultCombo, resultLines, recordNote,
+    gameoverOverlay, apiaryBtn, doubleRewardBtn, boosterNoteEl, continueOverlay, continueWatchBtn, continueSkipBtn, warehouseBarEl, warehouseItemsEl, warehouseHintEl, resultHoney, resultScore, resultCombo, resultLines, recordNote,
     levelNumEl, levelXpFillEl, levelPlaqueWrapEl, ratingValueEl, resHoneyEl, resHoneyGoalEl, resHoneyPlusBtn, resDiamondsEl, resPlusBtn, resTerritoryEl, resTerritoryPlusBtn,
     dailyChallengeBtnEl, dailyChallengeDotEl,
     calendarPanelV2El, calendarPanelDaysEl, navBadgeQuestsEl, navBadgeShopEl,
@@ -2316,14 +2447,12 @@ function dealNewBatch() {
 // значение из существующих данных.
 const BEE_COMBO_STREAK_THRESHOLD = 3;
 
+// The reroll is only ever earned by playing (a clearing streak) — never by anything bought,
+// so no purchase can make the puzzle itself easier.
 function updateRerollButton() {
-  const owns = hasBee(gameState, 'bee_scout');
-  const canReroll = bonusRerollAvailable || (owns && !rerollUsedThisRound);
-  rerollBtn.classList.toggle('hidden', !canReroll);
+  rerollBtn.classList.toggle('hidden', !bonusRerollAvailable);
   rerollBtn.classList.toggle('bonus', bonusRerollAvailable);
-  rerollBtn.title = bonusRerollAvailable
-    ? 'Бонус «Пчела-сборщица»: бесплатная замена фигур!'
-    : 'Заменить фигуры (1 раз за раунд)';
+  rerollBtn.title = 'Бонус «Пчела-сборщица»: бесплатная замена фигур!';
 }
 
 function commitPlacement(slotIndex, shape, originQ, originR) {
@@ -2383,6 +2512,13 @@ function commitPlacement(slotIndex, shape, originQ, originR) {
     spawnFloatingText('+' + honeyGain + ' 🍯', sumX / cnt, sumY / cnt);
     if (honeyBonusCells > 0) spawnFloatingText('Медовый блок! 🍯✨', sumX / cnt, sumY / cnt - layout.boardHexSize * 1.4);
     if (linesCleared >= 2) showComboBanner(linesCleared);
+    if (boosterRewardForClear(linesCleared)) {
+      const bt = BOOSTER_TYPES[Math.floor(Math.random() * BOOSTER_TYPES.length)];
+      grantBooster(gameState, bt);
+      saveGameState();
+      renderBoosterBar();
+      spawnFloatingText('+' + BOOSTER_DEFS[bt].icon + ' бустер!', sumX / cnt, sumY / cnt + layout.boardHexSize * 1.4);
+    }
 
     // "Пчела-сборщица": a streak of clearing placements earns a free reroll —
     // available even without owning bee_scout, since it's a reward for the
@@ -2399,6 +2535,18 @@ function commitPlacement(slotIndex, shape, originQ, originR) {
   }
 
   if (trayPieces.every((p) => p === null)) dealNewBatch();
+  if (!anyPieceHasAMove(gameBoard, trayPieces)) {
+    if (!roundContinueUsed && Platform.canShowRewarded()) continueOverlay.classList.remove('hidden');
+    else triggerGameOver();
+  }
+}
+
+// Rewarded "continue": once per round the bees clear the middle and deal fresh pieces.
+// (Only available where an ad SDK is actually present; otherwise the round just ends.)
+function applyContinueReward() {
+  roundContinueUsed = true;
+  applyBombAt(0, 0);
+  dealNewBatch();
   if (!anyPieceHasAMove(gameBoard, trayPieces)) triggerGameOver();
 }
 
@@ -2408,6 +2556,14 @@ function triggerGameOver() {
   updateQuestsProgress(gameState, { lines: roundLinesCleared, honey: roundHoney, combo: roundBestCombo, rounds: 1 });
   addXp(gameState, 5 + roundLinesCleared * 2);
   gameState.stats.roundsPlayed += 1;
+  gameState.lastVisitTimestamp = Date.now(); // time spent playing is not "away" time
+  boosterNoteEl.classList.add('hidden');
+  if (boosterRewardForRound(gameState.stats.roundsPlayed)) {
+    const bt = BOOSTER_TYPES[Math.floor(Math.random() * BOOSTER_TYPES.length)];
+    grantBooster(gameState, bt);
+    boosterNoteEl.textContent = 'Награда за ' + gameState.stats.roundsPlayed + '-й раунд: ' + BOOSTER_DEFS[bt].icon + ' ' + BOOSTER_DEFS[bt].name;
+    boosterNoteEl.classList.remove('hidden');
+  }
   gameState.stats.bestScore = Math.max(gameState.stats.bestScore, roundScore);
   saveGameState();
   Platform.gameplayStop();
@@ -2430,9 +2586,10 @@ function triggerGameOver() {
 function startPuzzleRound() {
   gameBoard = createBoard(RADIUS);
   roundHoney = 0; roundScore = 0; roundBestCombo = 0; roundLinesCleared = 0; roundComboCount = 0;
-  rerollUsedThisRound = false;
   roundClearStreak = 0;
   bonusRerollAvailable = false;
+  roundContinueUsed = false;
+  gameState.lastVisitTimestamp = Date.now();
   clearFx = []; drag = null; snapBack = null;
   activeBooster = null;
   roundStartBest = sessionBest;
@@ -2484,14 +2641,15 @@ function previewDailyStreakDay(state, now) {
 function enterApiary() {
   const now = Date.now();
   refreshDaily(gameState, now);
+  // Bees keep working while the player is away: honey for the time since the last
+  // activity, scaled by owned bees and capped (see computeIdleHoney).
+  const idleHoney = computeIdleHoney(gameState, now);
+  if (idleHoney > 0) gameState.honey += idleHoney;
   gameState.lastVisitTimestamp = now;
-  // Only reset here (a fresh navigation into the screen), not inside
-  // renderApiaryScreen() itself — that's also called right after a purchase
-  // completes, and that call needs decorChoiceForIndex to survive so the
-  // picker it just opened actually shows.
-  decorChoiceForIndex = null;
+  placementDecorId = null;
   saveGameState();
   renderApiaryScreen();
+  if (idleHoney > 0) showFarmToast('Пчёлы принесли +' + idleHoney + ' 🍯, пока вас не было');
 
   const previewDay = previewDailyStreakDay(gameState, now);
   if (previewDay != null) {
@@ -2568,7 +2726,7 @@ const FARM_GRID_HALF_H = (FARM_GRID_MAXY - FARM_GRID_MINY) / 2;
 let farmLayout = null;
 let hivePopoverOpen = false;
 let territoryPopoverIndex = null;
-let decorChoiceForIndex = null;
+let placementDecorId = null; // warehouse item currently being placed (null = not placing)
 // Bounded drag-to-pan — mobile only (see computeFarmLayout's maxPanX/Y, which are
 // 0 whenever the block already fits, making the drag a no-op on desktop by
 // construction rather than by a separate on/off switch).
@@ -2704,31 +2862,54 @@ function onTerritoryTap(index) {
 function onTerritoryBuyConfirm(index) {
   if (unlockTerritoryTile(gameState, index)) {
     territoryPopoverIndex = null;
-    // 2+ owned-but-unplaced decorations after the unlock → let the player pick
-    // which one goes on this plot, instead of auto-placing one for them.
-    const unplaced = gameState.decorations.filter((d) => d.owned && d.placedIndex == null);
-    decorChoiceForIndex = unplaced.length >= 2 ? index : null;
     saveGameState();
     renderApiaryScreen();
   } else {
-    showFarmToast('Не хватает мёда на расширение');
+    const price = territoryUnlockPrice(gameState);
+    showFarmToast(gameState.honey < price.honey ? 'Не хватает мёда на расширение' : 'Не хватает бриллиантов на расширение');
   }
 }
 
-function chooseDecorForTile(tileIndex, decorId) {
-  const tile = gameState.territory[tileIndex];
-  const decor = gameState.decorations.find((d) => d.id === decorId);
-  if (!tile || !decor || !decor.owned || decor.placedIndex != null) return;
-  tile.decorId = decorId;
-  decor.placedIndex = tileIndex;
-  decorChoiceForIndex = null;
-  saveGameState();
+// ---- Warehouse placement: pick an owned flower/decoration, then a free plot.
+function onWarehouseItemTap(decorId) {
+  if (placementDecorId === decorId) { placementDecorId = null; renderWarehouse(); renderFarmOverlay(); return; }
+  if (!gameState.territory.some(isTileFreeForDecor)) {
+    showFarmToast('Нет свободных сот — откройте новую территорию');
+    return;
+  }
+  placementDecorId = decorId;
+  hivePopoverOpen = false;
+  territoryPopoverIndex = null;
+  renderWarehouse();
   renderFarmOverlay();
 }
 
-function skipDecorChoice() {
-  decorChoiceForIndex = null;
-  renderFarmOverlay();
+function onEmptyTileTap(index) {
+  if (!placementDecorId) return;
+  const id = placementDecorId;
+  if (placeDecorFromWarehouse(gameState, id, index)) {
+    placementDecorId = null;
+    saveGameState();
+    showFarmToast('Посажено! Рейтинг вырос');
+    renderApiaryScreen();
+  }
+}
+
+function decorIconHtml(def) {
+  return def.flower ? '<img src="' + FLOWER_DEFS[def.flower].icon + '" alt="">' : def.icon;
+}
+
+function renderWarehouse() {
+  if (!warehouseBarEl) return;
+  const items = warehouseItems(gameState);
+  if (placementDecorId && !items.some((d) => d.id === placementDecorId)) placementDecorId = null;
+  warehouseBarEl.classList.toggle('hidden', items.length === 0);
+  warehouseHintEl.textContent = placementDecorId ? 'Выберите свободную соту на карте' : 'Склад — нажмите, чтобы посадить';
+  warehouseItemsEl.innerHTML = items.map((d) => {
+    const def = DECOR_DEFS[d.id];
+    return '<button class="wh-chip' + (d.id === placementDecorId ? ' selected' : '') + '" data-decor-id="' + d.id + '">' +
+      '<span class="wh-chip-icon">' + decorIconHtml(def) + '</span>' + def.name + '</button>';
+  }).join('');
 }
 
 // The 8-flower collection (names confirmed for the shop). Tiles pick a flower deterministically
@@ -2785,12 +2966,25 @@ function renderFarmOverlay() {
       farmOverlayEl.appendChild(el);
     } else if (tile.starterFlower || tile.decorId) {
       const el = makeHexTile('planted', size, p.x, p.y, false, flat);
-      el.innerHTML = '<img class="hex-tile-icon" src="' + flowerIconForTile(i) + '" alt="">';
+      const def = tile.decorId ? DECOR_DEFS[tile.decorId] : null;
+      if (def && !def.flower) {
+        el.innerHTML = '<span class="hex-tile-emoji" style="font-size:' + Math.round(size * 0.85) + 'px">' + def.icon + '</span>';
+      } else {
+        const src = def && def.flower ? FLOWER_DEFS[def.flower].icon : flowerIconForTile(i);
+        el.innerHTML = '<img class="hex-tile-icon" src="' + src + '" alt="">';
+      }
       farmOverlayEl.appendChild(el);
     } else {
-      // Unlocked and nothing planted yet — kept deliberately bare (see the CSS
-      // comment on .hex-tile--empty): just the hex outline, nothing else.
-      farmOverlayEl.appendChild(makeHexTile('empty', size, p.x, p.y, false, flat));
+      // Unlocked and free: a small (75%-size) slot marker invites a flower; while a
+      // warehouse item is selected, every free plot becomes tappable and pulses.
+      const placing = !!placementDecorId;
+      const el = makeHexTile('empty', size, p.x, p.y, placing, flat);
+      el.innerHTML = '<div class="hex-slot"></div>';
+      if (placing) {
+        el.classList.add('hex-tile--placing');
+        el.addEventListener('click', () => onEmptyTileTap(i));
+      }
+      farmOverlayEl.appendChild(el);
     }
   });
 
@@ -2838,16 +3032,17 @@ function renderFarmOverlay() {
     if (tile && !tile.unlocked) {
       const cell = FARM_TILE_CELLS[territoryPopoverIndex];
       const p = farmScreenPos(farmGridToUnit(cell.row, cell.col, FARM_GRID_ROWS[cell.row]));
-      const cost = territoryUnlockCost(gameState);
-      const afford = gameState.honey >= cost;
+      const price = territoryUnlockPrice(gameState);
+      const afford = gameState.honey >= price.honey && gameState.diamonds >= price.diamonds;
+      const priceText = price.honey + ' 🍯' + (price.diamonds > 0 ? ' + ' + price.diamonds + ' 💎' : '');
       const pop = document.createElement('div');
       pop.className = 'farm-hive-popover';
       pop.style.left = p.x + 'px';
       pop.style.top = (p.y - size * 0.95) + 'px';
       pop.innerHTML =
         '<div class="fhp-title">Новая территория</div>' +
-        '<div class="fhp-rate">Стоимость: ' + cost + ' мёда</div>' +
-        '<button class="small-action-btn" id="territory-buy-btn"' + (afford ? '' : ' disabled') + '>Купить · ' + cost + '<img class="inline-icon" src="assets/icon_honey.png" alt=""></button>';
+        '<div class="fhp-rate">Стоимость: ' + priceText + '</div>' +
+        '<button class="small-action-btn" id="territory-buy-btn"' + (afford ? '' : ' disabled') + '>Купить · ' + priceText + '</button>';
       farmOverlayEl.appendChild(pop);
       const buyBtn = document.getElementById('territory-buy-btn');
       if (buyBtn) buyBtn.addEventListener('click', (e) => {
@@ -2858,55 +3053,32 @@ function renderFarmOverlay() {
       territoryPopoverIndex = null;
     }
   }
-
-  // Right after a plot is bought, if there's a real choice to make (2+ owned
-  // decorations with nowhere to go yet), let the player pick which one lands
-  // here — see onTerritoryBuyConfirm/chooseDecorForTile.
-  if (decorChoiceForIndex !== null) {
-    const tile = gameState.territory[decorChoiceForIndex];
-    const unplaced = gameState.decorations.filter((d) => d.owned && d.placedIndex == null);
-    if (tile && tile.unlocked && !tile.decorId && unplaced.length > 0) {
-      const cell = FARM_TILE_CELLS[decorChoiceForIndex];
-      const p = farmScreenPos(farmGridToUnit(cell.row, cell.col, FARM_GRID_ROWS[cell.row]));
-      const pop = document.createElement('div');
-      pop.className = 'farm-hive-popover';
-      pop.style.left = p.x + 'px';
-      pop.style.top = (p.y - size * 0.95) + 'px';
-      pop.innerHTML =
-        '<div class="fhp-title">Что посадить здесь?</div>' +
-        '<div class="fhp-decor-options">' +
-        unplaced.map((d) => {
-          const def = DECOR_DEFS[d.id];
-          return '<button class="fhp-decor-opt" data-decor-id="' + d.id + '"><span class="fhp-decor-emoji">' + def.icon + '</span>' + def.name + '</button>';
-        }).join('') +
-        '</div>' +
-        '<button class="fhp-skip-btn" id="decor-skip-btn">Пропустить</button>';
-      farmOverlayEl.appendChild(pop);
-      pop.querySelectorAll('.fhp-decor-opt').forEach((btn) => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          chooseDecorForTile(decorChoiceForIndex, btn.dataset.decorId);
-        });
-      });
-      const skipBtn = document.getElementById('decor-skip-btn');
-      if (skipBtn) skipBtn.addEventListener('click', (e) => { e.stopPropagation(); skipDecorChoice(); });
-    } else {
-      decorChoiceForIndex = null;
-    }
-  }
 }
 
 function computeRating(state) {
-  const unlockedRing = state.territory.filter((t) => t.unlocked).length;
+  // Only things that never go backwards count — honey/diamonds are spendable, so a
+  // purchase must never lower the rating (and, through it, the apiary's look).
+  const extraPlots = Math.max(0, state.territory.filter((t) => t.unlocked).length - FARM_STARTER_COUNT);
+  const extraBees = Math.max(0, state.bees.filter((b) => b.owned).length - 1);
+  const placed = state.decorations.filter((d) => d.placedIndex != null).length;
   return Math.round(
-    state.level * 100 +
-    state.hive.level * 50 +
-    state.beeTier * 80 +
-    unlockedRing * 30 +
-    state.honey +
-    state.diamonds * 20
+    (state.level - 1) * 60 +
+    (state.hive.level - 1) * 40 +
+    (state.beeTier - 1) * 70 +
+    extraPlots * 50 +
+    extraBees * 30 +
+    placed * DECOR_RATING_WEIGHT
   );
 }
+
+// ---- Apiary look: 5 stages, driven by rating (thresholds are a starting point).
+const APIARY_STAGE_THRESHOLDS = [0, 200, 500, 1000, 2000];
+function apiaryStageForRating(rating) {
+  let stage = 1;
+  for (let i = 0; i < APIARY_STAGE_THRESHOLDS.length; i++) if (rating >= APIARY_STAGE_THRESHOLDS[i]) stage = i + 1;
+  return stage;
+}
+function apiaryStageAsset(stage) { return 'assets/bg_apiary_stage_' + stage + '.png'; }
 
 function updateLevelWidget() {
   levelNumEl.textContent = gameState.level;
@@ -3009,29 +3181,78 @@ function openCalendarOverlay() {
 // Ambient flying bees — decorative only, capped low so the hub never feels busy or laggy.
 // Built once (guarded by childElementCount) since each bee's CSS animation loops forever
 // on its own; re-rendering the screen shouldn't restart or duplicate them.
-const FARM_BEE_COUNT = 3;
+const FARM_BEE_BASE_COUNT = 3;
+const FARM_BEE_MAX_COUNT = 9;
+// More bees bought (tiers + collectible bees) -> more bees actually flying on the hub.
+function desiredFarmBeeCount(state) {
+  const tierBonus = Math.max(0, state.beeTier - 1);
+  const collectibleBonus = Math.max(0, state.bees.filter((b) => b.owned).length - 1);
+  return Math.min(FARM_BEE_MAX_COUNT, FARM_BEE_BASE_COUNT + tierBonus + collectibleBonus);
+}
 const FARM_BEE_VARIANTS = ['a', 'b', 'c'];
+
+function makeFarmBeeEl(index) {
+  const bee = document.createElement('div');
+  bee.className = 'farm-bee farm-bee--' + FARM_BEE_VARIANTS[index % FARM_BEE_VARIANTS.length];
+  const pathDuration = 17 + Math.random() * 7; // 17–24s, unhurried loop
+  const flutterDuration = 0.45 + Math.random() * 0.25;
+  bee.style.animationDuration = pathDuration.toFixed(1) + 's, ' + flutterDuration.toFixed(2) + 's';
+  // Negative delay = start partway through the loop, so bees don't all bunch up at once.
+  bee.style.animationDelay = (-Math.random() * pathDuration).toFixed(1) + 's, 0s';
+  const img = document.createElement('img');
+  img.alt = '';
+  bee.appendChild(img);
+  return bee;
+}
 
 function renderFarmBees() {
   if (!farmBeesEl) return;
   const icon = currentBeeTier(gameState).icon;
-  if (farmBeesEl.childElementCount === 0) {
-    for (let i = 0; i < FARM_BEE_COUNT; i++) {
-      const bee = document.createElement('div');
-      bee.className = 'farm-bee farm-bee--' + FARM_BEE_VARIANTS[i % FARM_BEE_VARIANTS.length];
-      const pathDuration = 17 + Math.random() * 7; // 17–24s, unhurried loop
-      const flutterDuration = 0.45 + Math.random() * 0.25;
-      bee.style.animationDuration = pathDuration.toFixed(1) + 's, ' + flutterDuration.toFixed(2) + 's';
-      // Negative delay = start partway through the loop, so bees don't all bunch up at once.
-      bee.style.animationDelay = (-Math.random() * pathDuration).toFixed(1) + 's, 0s';
-      const img = document.createElement('img');
-      img.alt = '';
-      bee.appendChild(img);
-      farmBeesEl.appendChild(bee);
-    }
-  }
+  const desired = desiredFarmBeeCount(gameState);
+  while (farmBeesEl.childElementCount < desired) farmBeesEl.appendChild(makeFarmBeeEl(farmBeesEl.childElementCount));
+  while (farmBeesEl.childElementCount > desired) farmBeesEl.removeChild(farmBeesEl.lastElementChild);
   // Ambient bees always show the player's current tier, so ranking up is visible on the hub.
   farmBeesEl.querySelectorAll('img').forEach((img) => { if (img.src.indexOf(icon) === -1) img.src = icon; });
+}
+
+// ---- Apiary stage backgrounds (crossfade) and locked-plot art detection.
+const imageProbeCache = {};
+function probeImage(url) {
+  if (!imageProbeCache[url]) {
+    imageProbeCache[url] = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url;
+    });
+  }
+  return imageProbeCache[url];
+}
+
+let apiaryShownStage = 0;
+let apiaryActiveLayer = 0;
+async function updateApiaryStageBackground() {
+  const layers = [document.getElementById('apiary-stage-a'), document.getElementById('apiary-stage-b')];
+  if (!layers[0] || !layers[1]) return;
+  const target = apiaryStageForRating(computeRating(gameState));
+  if (target === apiaryShownStage) return;
+  // Use the highest stage image that actually exists at or below the target —
+  // until every stage art file is added, the shared background simply stays.
+  let use = 0;
+  for (let st = target; st >= 1; st--) { if (await probeImage(apiaryStageAsset(st))) { use = st; break; } }
+  if (use === apiaryShownStage) { apiaryShownStage = target === use ? target : apiaryShownStage; return; }
+  const next = 1 - apiaryActiveLayer;
+  if (use > 0) layers[next].style.backgroundImage = "url('" + apiaryStageAsset(use) + "')";
+  layers[next].classList.toggle('on', use > 0);
+  layers[apiaryActiveLayer].classList.remove('on');
+  apiaryActiveLayer = next;
+  apiaryShownStage = use;
+}
+
+async function detectLockMode() {
+  if (await probeImage('assets/icon_cell_locked.png')) document.documentElement.dataset.lock = 'icon';
+  else if (await probeImage('assets/hex_locked.png')) document.documentElement.dataset.lock = 'badge';
+  else document.documentElement.dataset.lock = 'svg';
 }
 
 function renderApiaryScreen() {
@@ -3041,9 +3262,11 @@ function renderApiaryScreen() {
   renderCalendarPanelPreview();
   hivePopoverOpen = false;
   territoryPopoverIndex = null;
+  renderWarehouse();
   computeFarmLayout();
   renderFarmOverlay();
   renderFarmBees();
+  updateApiaryStageBackground();
   dailyPopoverOpen = false;
   renderDailyChallengePopover();
 }
@@ -3098,21 +3321,23 @@ function renderShopScreen() {
     shopContentEl.appendChild(label);
   }
 
-  // ---- Цветы: every flower species among the project assets. Flowers have no
-  // per-species buy action anywhere in the game (they're auto-placed on unlocked
-  // plots), so this stays a read-only catalog tile — not a new purchase mechanic.
-  // Price shown is the game's one real flower-decoration cost (DECOR_DEFS.flower_1),
-  // not a made-up per-species price.
+  // ---- Цветы: each species is a real purchase. Buying stocks the warehouse (not the
+  // map) — the player then plants it from the hub, which raises the rating.
   addLabel('Цветы');
-  const flowerPrice = DECOR_DEFS.flower_1.cost;
   Object.keys(FLOWER_DEFS).forEach((key) => {
-    const def = FLOWER_DEFS[key];
+    const fdef = FLOWER_DEFS[key];
+    const id = 'fl_' + key;
+    const decor = gameState.decorations.find((d) => d.id === id);
+    const def = DECOR_DEFS[id];
     const tile = document.createElement('div');
     tile.className = 'shop-tile';
+    let action;
+    if (decor.owned) action = '<div class="bee-badge">' + (decor.placedIndex != null ? 'Посажен' : 'На складе') + '</div>';
+    else action = '<button class="small-action-btn" data-action="buy-decor" data-id="' + id + '"' +
+      (gameState.honey < def.cost ? ' disabled' : '') + '>Купить · ' + def.cost + '🍯</button>';
     tile.innerHTML =
-      '<img class="bee-tier-icon bee-tier-icon--sm" src="' + def.icon + '" alt="">' +
-      '<div class="bee-name">' + def.name + '</div>' +
-      '<div class="bee-desc">' + flowerPrice + '🍯</div>';
+      '<img class="bee-tier-icon bee-tier-icon--sm' + (decor.owned ? '' : ' dim') + '" src="' + fdef.icon + '" alt="">' +
+      '<div class="bee-name">' + fdef.name + '</div>' + action;
     shopContentEl.appendChild(tile);
   });
 
@@ -3195,7 +3420,7 @@ function renderShopScreen() {
   addLabel('Украшения');
   for (const decor of gameState.decorations) {
     const def = DECOR_DEFS[decor.id];
-    if (def.hidden) continue;
+    if (def.hidden || def.flower || def.legacy) continue;
     const accent = def.statue ? ' bee-icon--statue' : '';
     const tile = document.createElement('div');
     tile.className = 'shop-tile';
@@ -3203,7 +3428,7 @@ function renderShopScreen() {
       tile.innerHTML =
         '<div class="bee-icon' + accent + '">' + def.icon + '</div>' +
         '<div class="bee-name">' + def.name + '</div>' +
-        '<div class="bee-badge">Куплено</div>';
+        '<div class="bee-badge">' + (decor.placedIndex != null ? 'Посажено' : 'На складе') + '</div>';
     } else {
       tile.innerHTML =
         '<div class="bee-icon dim' + accent + '">' + def.icon + '</div>' +
@@ -3256,11 +3481,11 @@ function renderProfileScreen() {
   html += '</div>';
 
   html += '<div class="section-label" style="margin-top:14px;">Коллекция · Украшения</div><div class="collection-grid">';
-  html += s.decorations.map((decor) => {
+  html += s.decorations.filter((decor) => !(DECOR_DEFS[decor.id].legacy && !decor.owned)).map((decor) => {
     const def = DECOR_DEFS[decor.id];
     const accent = def.statue ? ' bee-icon--statue' : '';
-    const badge = decor.owned ? 'Куплено' : (def.cost == null ? 'Скоро' : 'Не куплено');
-    return '<div class="shop-tile"><div class="bee-icon' + (decor.owned ? '' : ' dim') + accent + '">' + def.icon + '</div>' +
+    const badge = decor.owned ? (decor.placedIndex != null ? 'Посажено' : 'На складе') : (def.cost == null ? 'Скоро' : 'Не куплено');
+    return '<div class="shop-tile"><div class="bee-icon' + (decor.owned ? '' : ' dim') + accent + '">' + decorIconHtml(def) + '</div>' +
       '<div class="bee-name">' + def.name + '</div>' +
       '<div class="bee-badge">' + badge + '</div></div>';
   }).join('');
@@ -3288,7 +3513,9 @@ function wireEconomyActions() {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     const action = btn.dataset.action, id = btn.dataset.id;
-    if (action === 'buy-decor') buyDecoration(gameState, id);
+    if (action === 'buy-decor') {
+      if (buyDecoration(gameState, id)) showFarmToast('Куплено — лежит на складе. Посадите на пасеке 🌱');
+    }
     else if (action === 'buy-booster') buyBooster(gameState, id);
     else if (action === 'buy-bee-tier') buyNextBeeTier(gameState);
     else if (action === 'unlock-bee') unlockBee(gameState, id);
@@ -3337,15 +3564,9 @@ function wireEconomyActions() {
   });
 
   rerollBtn.addEventListener('click', function () {
-    if (bonusRerollAvailable) {
-      bonusRerollAvailable = false;
-      dealNewBatch();
-      updateRerollButton();
-      return;
-    }
-    if (rerollUsedThisRound) return;
+    if (!bonusRerollAvailable) return;
+    bonusRerollAvailable = false;
     dealNewBatch();
-    rerollUsedThisRound = true;
     updateRerollButton();
   });
 
@@ -3363,6 +3584,27 @@ function wireEconomyActions() {
     idleOverlay.classList.add('hidden');
     saveGameState();
     renderApiaryScreen();
+  });
+
+  continueWatchBtn.addEventListener('click', function () {
+    continueWatchBtn.disabled = true;
+    Platform.showRewarded(
+      function onRewarded() { applyContinueReward(); },
+      function onClose(wasRewarded) {
+        continueWatchBtn.disabled = false;
+        continueOverlay.classList.add('hidden');
+        if (!wasRewarded) triggerGameOver();
+      }
+    );
+  });
+  continueSkipBtn.addEventListener('click', function () {
+    continueOverlay.classList.add('hidden');
+    triggerGameOver();
+  });
+
+  warehouseItemsEl.addEventListener('click', function (e) {
+    const chip = e.target.closest('.wh-chip');
+    if (chip) onWarehouseItemTap(chip.dataset.decorId);
   });
 
   doubleRewardBtn.addEventListener('click', function () {
@@ -3392,8 +3634,9 @@ function wireEconomyActions() {
     // Interstitial no more than every 2-3 completed rounds, at this natural
     // pause point between a round and the hub — never mid-puzzle.
     roundsSincePlatformAd += 1;
-    if (roundsSincePlatformAd >= 3) {
+    if (roundsSincePlatformAd >= interstitialGap) {
       roundsSincePlatformAd = 0;
+      interstitialGap = nextInterstitialGap();
       Platform.showInterstitial(function () { navigateTo('apiary'); });
     } else {
       navigateTo('apiary');
@@ -3441,6 +3684,13 @@ function cacheDom() {
   gameoverOverlay = document.getElementById('gameover-overlay');
   apiaryBtn = document.getElementById('apiary-btn');
   doubleRewardBtn = document.getElementById('double-reward-btn');
+  boosterNoteEl = document.getElementById('booster-note');
+  continueOverlay = document.getElementById('continue-overlay');
+  continueWatchBtn = document.getElementById('continue-watch-btn');
+  continueSkipBtn = document.getElementById('continue-skip-btn');
+  warehouseBarEl = document.getElementById('warehouse-bar');
+  warehouseItemsEl = document.getElementById('warehouse-items');
+  warehouseHintEl = document.getElementById('warehouse-hint');
   resultHoney = document.getElementById('result-honey');
   resultScore = document.getElementById('result-score');
   resultCombo = document.getElementById('result-combo');
@@ -3489,6 +3739,7 @@ function cacheDom() {
 
 async function boot() {
   cacheDom();
+  detectLockMode();
   await Platform.init();
   gameState = await loadGameState();
 
