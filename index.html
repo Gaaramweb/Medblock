@@ -1205,11 +1205,20 @@ function computeLines(cells) {
 }
 
 function canPlace(board, shapeCells, offQ, offR) {
-  for (const [dq, dr] of shapeCells) {
-    const cell = board.map.get(cellKey(offQ + dq, offR + dr));
-    if (!cell || cell.occupied) return false;
+  try {
+    if (!shapeCells || !Array.isArray(shapeCells)) return false;
+    for (const coords of shapeCells) {
+      if (!coords || coords.length < 2) continue;
+      const dq = coords[0];
+      const dr = coords[1];
+      const cell = board.map.get(cellKey(offQ + dq, offR + dr));
+      if (!cell || cell.occupied) return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Ошибка в canPlace:', err);
+    return false;
   }
-  return true;
 }
 
 function placeShape(board, shapeCells, offQ, offR, honeyIndex) {
@@ -1240,7 +1249,24 @@ function canPlaceAnywhere(board, shapeCells) {
 }
 
 function anyPieceHasAMove(board, pieces) {
-  return pieces.some((shape) => shape && canPlaceAnywhere(board, shape.cells));
+  try {
+    if (!pieces || !Array.isArray(pieces)) return false;
+    // Фильтруем пустые или некорректные фигуры
+    const activePieces = pieces.filter(shape => shape && shape.cells && Array.isArray(shape.cells));
+    if (activePieces.length === 0) return false;
+    
+    return activePieces.some((shape) => {
+      try {
+        return canPlaceAnywhere(board, shape.cells);
+      } catch (e) {
+        console.error('Ошибка проверки размещения фигуры:', e);
+        return false;
+      }
+    });
+  } catch (err) {
+    console.error('Критическая ошибка проверки ходов:', err);
+    return false;
+  }
 }
 
 function axialToPixel(q, r, size) {
